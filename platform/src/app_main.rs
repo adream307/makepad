@@ -9,7 +9,7 @@ pub trait AppMain{
 #[macro_export]
 macro_rules!app_main {
     ( $ app: ident) => {
-        #[cfg(not(any(target_arch = "wasm32", target_os="android")))]
+        #[cfg(not(any(target_arch = "wasm32", target_os="android", target_env="ohos")))]
         pub fn app_main() {
             if Cx::pre_start(){
                 return
@@ -80,6 +80,13 @@ macro_rules!app_main {
                 cx
             })
         }
+
+        #[cfg(target_env = "ohos")]
+        #[napi_derive_ohos::module_exports]
+        fn init(exports: napi_ohos::JsObject, env: napi_ohos::Env) -> napi_ohos::Result<()> {
+            Ok(());
+        }
+
         
         #[cfg(target_arch = "wasm32")]
         pub fn app_main() {}
