@@ -84,9 +84,25 @@ macro_rules!app_main {
         #[cfg(target_env = "ohos")]
         #[napi_derive_ohos::module_exports]
         fn init(exports: napi_ohos::JsObject, env: napi_ohos::Env) -> napi_ohos::Result<()> {
+            Cx::ohos_init(exports,,env ||{
+                let app = std::rc::Rc::new(std::cell::RefCell::new(None));
+                let mut cx = Box::new(Cx::new(Box::new(move | cx, event | {
+                    if let Event::Startup = event {
+                        *app.borrow_mut() = Some($app::new_main(cx));
+                    }
+                    if let Event::LiveEdit = event{
+                        app.borrow_mut().update_main(cx);
+                    }
+                    app.borrow_mut().as_mut().unwrap().handle_event(cx, event);
+                })));
+                $app::register_main_module(&mut cx);
+                cx.init_websockets(std::option_env!("MAKEPAD_STUDIO_HTTP").unwrap_or(""));
+                live_design(&mut cx);
+                cx.init_cx_os();
+                cx
+            })
             Ok(());
         }
-
         
         #[cfg(target_arch = "wasm32")]
         pub fn app_main() {}
