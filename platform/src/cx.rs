@@ -138,8 +138,12 @@ pub struct AndroidParams {
     pub kernel_version: String
 }
 
+#[napi(object)]
 #[derive(Clone, Debug)]
 pub struct OpenHarmonyParams {
+    pub device_type: String,
+    pub os_full_name: String,
+    pub display_density: f64,
 }
 
 #[derive(Clone, Debug)]
