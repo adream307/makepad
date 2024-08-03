@@ -1,33 +1,23 @@
 use {
-    std::rc::Rc,
-    std::time::Instant,
-    std::cell::RefCell,
-    self::super::{
-        oh_event::*,
-        oh_media::CxOpenHarmonyMedia
-    },
-    self::super::super::{
-        gl_sys,
-        select_timer::SelectTimers,
-    },
+    self::super::super::{gl_sys, select_timer::SelectTimers},
+    self::super::{oh_event::*, oh_media::CxOpenHarmonyMedia},
     crate::{
-        window::CxWindowPool,
-        cx_api::{CxOsOp, CxOsApi, OpenUrlInPlace},
+        cx::{Cx, OpenHarmonyParams, OsType},
+        cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
+        event::{Event, TimerEvent, WindowGeom},
+        gpu_info::GpuPerformance,
         makepad_live_id::*,
         makepad_math::*,
-        thread::SignalToUI,
-        event::{
-            TimerEvent,
-            Event,
-            WindowGeom,
-        },
+        os::cx_native::EventFlow,
         //window::CxWindowPool,
         pass::CxPassParent,
-        cx::{Cx, OsType, OpenHarmonyParams},
-        gpu_info::GpuPerformance,
-        os::cx_native::EventFlow,
         pass::{PassClearColor, PassClearDepth, PassId},
-    }
+        thread::SignalToUI,
+        window::CxWindowPool,
+    },
+    std::cell::RefCell,
+    std::rc::Rc,
+    std::time::Instant,
 };
 
 pub struct OpenHarmonyApp {
@@ -40,34 +30,31 @@ pub struct OpenHarmonyApp {
 
 impl OpenHarmonyApp {
     fn new() -> Self {
-
         Self {
             dpi_factor: 2.0,
             width: 1000.0,
             height: 3000.0,
-            timers: SelectTimers::new()
+            timers: SelectTimers::new(),
         }
     }
 }
 
 impl Cx {
-    pub fn event_loop(cx: Rc<RefCell<Cx >>) {
-        
+    pub fn event_loop(cx: Rc<RefCell<Cx>>) {
         let mut cx = cx.borrow_mut();
-        
-        cx.os_type = OsType::OpenHarmony(OpenHarmonyParams{
-        });
+
+        cx.os_type = OsType::OpenHarmony(OpenHarmonyParams {});
         cx.gpu_info.performance = GpuPerformance::Tier1;
-        
+
         cx.call_event_handler(&Event::Startup);
         cx.redraw_all();
-        
+
         let mut app = OpenHarmonyApp::new();
         app.timers.start_timer(0, 0.008, true);
         // lets run the kms eventloop
         let mut event_flow = EventFlow::Poll;
         let mut timer_ids = Vec::new();
-        
+
         while event_flow != EventFlow::Exit {
             if event_flow == EventFlow::Wait {
                 //    kms_app.timers.select(signal_fds[0]);
@@ -79,8 +66,8 @@ impl Cx {
                     &mut app,
                     OpenHarmonyEvent::Timer(TimerEvent {
                         timer_id: *timer_id,
-                        time:Some(time)
-                    })
+                        time: Some(time),
+                    }),
                 );
             }
             /*let input_events = direct_app.raw_input.poll_raw_input(
@@ -93,20 +80,20 @@ impl Cx {
                     event
                 );
             }*/
-            
+
             event_flow = cx.oh_event_callback(&mut app, OpenHarmonyEvent::Paint);
         }
     }
-    
+
     fn oh_event_callback(
         &mut self,
         app: &mut OpenHarmonyApp,
         event: OpenHarmonyEvent,
     ) -> EventFlow {
         if let EventFlow::Exit = self.handle_platform_ops(app) {
-            return EventFlow::Exit
+            return EventFlow::Exit;
         }
-        
+
         //self.process_desktop_pre_event(&mut event);
         match event {
             OpenHarmonyEvent::Paint => {
@@ -126,10 +113,7 @@ impl Cx {
                 //profile_end("paint openGL", p);
             }
             OpenHarmonyEvent::MouseDown(e) => {
-                self.fingers.process_tap_count(
-                    e.abs,
-                    e.time
-                );
+                self.fingers.process_tap_count(e.abs, e.time);
                 self.fingers.mouse_down(e.button, CxWindowPool::id_zero());
                 self.call_event_handler(&Event::MouseDown(e.into()))
             }
@@ -144,9 +128,7 @@ impl Cx {
                 self.fingers.mouse_up(button);
                 self.fingers.cycle_hover_area(live_id!(mouse).into());
             }
-            OpenHarmonyEvent::Scroll(e) => {
-                self.call_event_handler(&Event::Scroll(e.into()))
-            }
+            OpenHarmonyEvent::Scroll(e) => self.call_event_handler(&Event::Scroll(e.into())),
             OpenHarmonyEvent::KeyDown(e) => {
                 self.keyboard.process_key_down(e.clone());
                 self.call_event_handler(&Event::KeyDown(e))
@@ -155,17 +137,14 @@ impl Cx {
                 self.keyboard.process_key_up(e.clone());
                 self.call_event_handler(&Event::KeyUp(e))
             }
-            OpenHarmonyEvent::TextInput(e) => {
-                self.call_event_handler(&Event::TextInput(e))
-            }
+            OpenHarmonyEvent::TextInput(e) => self.call_event_handler(&Event::TextInput(e)),
             OpenHarmonyEvent::Timer(e) => {
                 if e.timer_id == 0 {
                     if SignalToUI::check_and_clear_ui_signal() {
                         self.handle_media_signals();
                         self.call_event_handler(&Event::Signal);
                     }
-                }
-                else {
+                } else {
                     self.call_event_handler(&Event::Timer(e))
                 }
             }
@@ -176,38 +155,33 @@ impl Cx {
             EventFlow::Wait
         }
     }
-    
-    pub fn draw_pass_to_fullscreen(
-        &mut self,
-        pass_id: PassId,
-        app: &mut OpenHarmonyApp,
-    ) {
+
+    pub fn draw_pass_to_fullscreen(&mut self, pass_id: PassId, app: &mut OpenHarmonyApp) {
         let draw_list_id = self.passes[pass_id].main_draw_list_id.unwrap();
-        
+
         self.setup_render_pass(pass_id);
-        
+
         // keep repainting in a loop
         //self.passes[pass_id].paint_dirty = false;
-        
+
         unsafe {
             //direct_app.egl.make_current();
             gl_sys::Viewport(0, 0, app.width as i32, app.height as i32);
         }
-        
+
         let clear_color = if self.passes[pass_id].color_textures.len() == 0 {
             self.passes[pass_id].clear_color
-        }
-        else {
+        } else {
             match self.passes[pass_id].color_textures[0].clear_color {
                 PassClearColor::InitWith(color) => color,
-                PassClearColor::ClearWith(color) => color
+                PassClearColor::ClearWith(color) => color,
             }
         };
         let clear_depth = match self.passes[pass_id].clear_depth {
             PassClearDepth::InitWith(depth) => depth,
-            PassClearDepth::ClearWith(depth) => depth
+            PassClearDepth::ClearWith(depth) => depth,
         };
-        
+
         if !self.passes[pass_id].dont_clear {
             unsafe {
                 gl_sys::BindFramebuffer(gl_sys::FRAMEBUFFER, 0);
@@ -217,23 +191,18 @@ impl Cx {
             }
         }
         Self::set_default_depth_and_blend_mode();
-        
+
         let mut zbias = 0.0;
         let zbias_step = self.passes[pass_id].zbias_step;
-        
-        self.render_view(
-            pass_id,
-            draw_list_id,
-            &mut zbias,
-            zbias_step,
-        );
-        
+
+        self.render_view(pass_id, draw_list_id, &mut zbias, zbias_step);
+
         //unsafe {
-            //direct_app.drm.swap_buffers_and_wait(&direct_app.egl);
+        //direct_app.drm.swap_buffers_and_wait(&direct_app.egl);
         //}
     }
-    
-    pub (crate) fn handle_repaint(&mut self, app: &mut OpenHarmonyApp) {
+
+    pub(crate) fn handle_repaint(&mut self, app: &mut OpenHarmonyApp) {
         let mut passes_todo = Vec::new();
         self.compute_pass_repaint_order(&mut passes_todo);
         self.repaint_id += 1;
@@ -245,20 +214,23 @@ impl Cx {
                 }
                 CxPassParent::Pass(_) => {
                     self.draw_pass_to_magic_texture(*pass_id);
-                },
+                }
                 CxPassParent::None => {
                     self.draw_pass_to_magic_texture(*pass_id);
                 }
             }
         }
     }
-    
+
     fn handle_platform_ops(&mut self, app: &mut OpenHarmonyApp) -> EventFlow {
         while let Some(op) = self.platform_ops.pop() {
             match op {
                 CxOsOp::CreateWindow(window_id) => {
                     let window = &mut self.windows[window_id];
-                    let size = dvec2(app.width as f64 / app.dpi_factor, app.height as f64 / app.dpi_factor);
+                    let size = dvec2(
+                        app.width as f64 / app.dpi_factor,
+                        app.height as f64 / app.dpi_factor,
+                    );
                     window.window_geom = WindowGeom {
                         dpi_factor: app.dpi_factor,
                         can_fullscreen: false,
@@ -267,20 +239,24 @@ impl Cx {
                         is_topmost: true,
                         position: dvec2(0.0, 0.0),
                         inner_size: size,
-                        outer_size: size
+                        outer_size: size,
                     };
                     window.is_created = true;
-                },
+                }
                 CxOsOp::SetCursor(_cursor) => {
                     //xlib_app.set_mouse_cursor(cursor);
-                },
-                CxOsOp::StartTimer {timer_id, interval, repeats} => {
+                }
+                CxOsOp::StartTimer {
+                    timer_id,
+                    interval,
+                    repeats,
+                } => {
                     app.timers.start_timer(timer_id, interval, repeats);
-                },
+                }
                 CxOsOp::StopTimer(timer_id) => {
                     app.timers.stop_timer(timer_id);
-                },
-                _ => ()
+                }
+                _ => (),
             }
         }
         EventFlow::Poll
@@ -293,30 +269,35 @@ impl CxOsApi for Cx {
         self.live_scan_dependencies();
         self.native_load_dependencies();
     }
-    
-    fn spawn_thread<F>(&mut self, f: F) where F: FnOnce() + Send + 'static {
+
+    fn spawn_thread<F>(&mut self, f: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
         std::thread::spawn(f);
     }
-    
-    fn open_url(&mut self, _url:&str, _in_place:OpenUrlInPlace){
+
+    fn open_url(&mut self, _url: &str, _in_place: OpenUrlInPlace) {
         crate::error!("open_url not implemented on this platform");
     }
-    
-    fn seconds_since_app_start(&self)->f64{
-        Instant::now().duration_since(self.os.start_time).as_secs_f64()
+
+    fn seconds_since_app_start(&self) -> f64 {
+        Instant::now()
+            .duration_since(self.os.start_time)
+            .as_secs_f64()
     }
 }
 
 pub struct CxOs {
     pub media: CxOpenHarmonyMedia,
-    pub (crate) start_time: Instant,
+    pub(crate) start_time: Instant,
 }
 
 impl Default for CxOs {
     fn default() -> Self {
         Self {
             start_time: Instant::now(),
-            media: Default::default()
+            media: Default::default(),
         }
     }
 }
