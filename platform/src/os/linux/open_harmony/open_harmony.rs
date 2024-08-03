@@ -33,6 +33,7 @@ use ohos_sys::xcomponent::{
     OH_NativeXComponent_RegisterCallback, OH_NativeXComponent_TouchEvent,
     OH_NativeXComponent_TouchEventType,
 };
+use std::os::raw::c_void;
 use std::sync::mpsc;
 
 pub struct OpenHarmonyApp {
@@ -68,23 +69,64 @@ impl OpenHarmonyApp {
     }
 }
 
+#[no_mangle]
+pub extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, window: *mut c_void) {
+}
+
+#[no_mangle]
+pub extern "C" fn on_surface_changed_cb(component: *mut OH_NativeXComponent, window: *mut c_void) {}
+
+#[no_mangle]
+pub extern "C" fn on_surface_destroyed_cb(
+    component: *mut OH_NativeXComponent,
+    window: *mut c_void,
+) {
+}
+
+#[no_mangle]
+pub extern "C" fn on_dispatch_touch_event_cb(
+    component: *mut OH_NativeXComponent,
+    window: *mut c_void,
+) {
+}
+
 impl Cx {
     pub fn ohos_init<F>(exports: JsObject, env: Env, startup: F)
     where
         F: FnOnce() -> Box<Cx> + Send + 'static,
     {
-        let (from_ohos_tx, from_ohos_rx) = mpsc::channel();
-
-        std::panic::set_hook(Box::new(|info| {
-            crate::log!("Custom panic hook: {}", info);
-        }));
-
-        OHOS_MSG_TX.with(move |messages_tx| *messages_tx.borrow_mut() = Some(from_ohos_tx));
-
-        // lets start a thread
-        std::thread::spawn(move || {
-            let mut cx = startup();
-        });
+        if let Ok(xcomponent) = exports.get_named_property::<JsObject>("__NATIVE_XCOMPONENT_OBJ__")
+        {
+            crate::log!("reginter xcomponent callbacks");
+            let raw = unsafe { xcomponent.raw() };
+            let raw_env = env.raw();
+            let mut native_xcomponent: *mut OH_NativeXComponent = core::ptr::null_mut();
+            unsafe {
+                let res = napi_ohos::sys::napi_unwrap(
+                    raw_env,
+                    raw,
+                    &mut native_xcomponent as *mut *mut OH_NativeXComponent as *mut *mut c_void,
+                );
+                assert!(res == 0);
+            }
+            crate::log!("Got native_xcomponent!");
+            let cbs = Box::new(OH_NativeXComponent_Callback {
+                OnSurfaceCreated: Some(on_surface_created_cb),
+                OnSurfaceChanged: Some(on_surface_changed_cb),
+                OnSurfaceDestroyed: Some(on_surface_destroyed_cb),
+                DispatchTouchEvent: Some(on_dispatch_touch_event_cb),
+            });
+            let res = unsafe {
+                OH_NativeXComponent_RegisterCallback(native_xcomponent, Box::leak(cbs) as *mut _)
+            };
+            if res != 0 {
+                crate::error!("Failed to register callbacks");
+            } else {
+                crate::log!("Registerd callbacks successfully");
+            }
+        } else {
+            crate::log!("Failed to get xcomponent in ohos_init");
+        }
     }
 
     pub fn event_loop(cx: Rc<RefCell<Cx>>) {
