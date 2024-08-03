@@ -20,6 +20,18 @@ use {
     std::time::Instant,
 };
 
+use napi_derive_ohos::{module_exports, napi};
+use napi_ohos::bindgen_prelude::Undefined;
+use napi_ohos::threadsafe_function::{
+    ErrorStrategy, ThreadsafeFunction, ThreadsafeFunctionCallMode,
+};
+use napi_ohos::{Env, JsFunction, JsObject, JsString, NapiRaw};
+use ohos_sys::xcomponent::{
+    OH_NativeXComponent, OH_NativeXComponent_Callback, OH_NativeXComponent_GetTouchEvent,
+    OH_NativeXComponent_RegisterCallback, OH_NativeXComponent_TouchEvent,
+    OH_NativeXComponent_TouchEventType,
+};
+
 pub struct OpenHarmonyApp {
     timers: SelectTimers,
     dpi_factor: f64,
@@ -40,6 +52,9 @@ impl OpenHarmonyApp {
 }
 
 impl Cx {
+    pub fn ohos_init<F>(exports: JsObject, env: Env, startup: F)where F: FnOnce() -> Box<Cx> + Send + 'static {
+    }
+
     pub fn event_loop(cx: Rc<RefCell<Cx>>) {
         let mut cx = cx.borrow_mut();
 
