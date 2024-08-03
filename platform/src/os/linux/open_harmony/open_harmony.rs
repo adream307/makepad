@@ -20,6 +20,8 @@ use {
     std::time::Instant,
 };
 
+//----------------------
+
 use napi_derive_ohos::{module_exports, napi};
 use napi_ohos::bindgen_prelude::Undefined;
 use napi_ohos::threadsafe_function::{
@@ -31,6 +33,7 @@ use ohos_sys::xcomponent::{
     OH_NativeXComponent_RegisterCallback, OH_NativeXComponent_TouchEvent,
     OH_NativeXComponent_TouchEventType,
 };
+use std::sync::mpsc;
 
 pub struct OpenHarmonyApp {
     timers: SelectTimers,
@@ -38,6 +41,20 @@ pub struct OpenHarmonyApp {
     width: f64,
     height: f64,
     //add egl here etc
+}
+
+#[derive(Debug)]
+pub enum FromOhosMessage {}
+
+thread_local! {
+    static OHOS_MSG_TX: RefCell<Option<mpsc::Sender<FromOhosMessage>>> = RefCell::new(None);
+}
+
+fn send_from_java_message(message: FromOhosMessage) {
+    OHOS_MSG_TX.with(|tx| {
+        let mut tx = tx.borrow_mut();
+        tx.as_mut().unwrap().send(message).unwrap();
+    })
 }
 
 impl OpenHarmonyApp {
@@ -52,7 +69,22 @@ impl OpenHarmonyApp {
 }
 
 impl Cx {
-    pub fn ohos_init<F>(exports: JsObject, env: Env, startup: F)where F: FnOnce() -> Box<Cx> + Send + 'static {
+    pub fn ohos_init<F>(exports: JsObject, env: Env, startup: F)
+    where
+        F: FnOnce() -> Box<Cx> + Send + 'static,
+    {
+        let (from_ohos_tx, from_ohos_rx) = mpsc::channel();
+
+        std::panic::set_hook(Box::new(|info| {
+            crate::log!("Custom panic hook: {}", info);
+        }));
+
+        OHOS_MSG_TX.with(move |messages_tx| *messages_tx.borrow_mut() = Some(from_ohos_tx));
+
+        // lets start a thread
+        std::thread::spawn(move || {
+            let mut cx = startup();
+        });
     }
 
     pub fn event_loop(cx: Rc<RefCell<Cx>>) {
