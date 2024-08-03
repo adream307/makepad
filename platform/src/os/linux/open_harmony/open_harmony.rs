@@ -1,3 +1,5 @@
+use crate::event::window;
+
 use {
     self::super::super::{gl_sys, select_timer::SelectTimers},
     self::super::{oh_event::*, oh_media::CxOpenHarmonyMedia},
@@ -29,12 +31,14 @@ use napi_ohos::threadsafe_function::{
 };
 use napi_ohos::{Env, JsFunction, JsObject, JsString, NapiRaw};
 use ohos_sys::xcomponent::{
-    OH_NativeXComponent, OH_NativeXComponent_Callback, OH_NativeXComponent_GetTouchEvent,
+    self, OH_NativeXComponent, OH_NativeXComponent_Callback, OH_NativeXComponent_GetTouchEvent,
     OH_NativeXComponent_RegisterCallback, OH_NativeXComponent_TouchEvent,
     OH_NativeXComponent_TouchEventType,
 };
 use std::os::raw::c_void;
+use std::ptr::null;
 use std::sync::mpsc;
+use self::super::super::egl_sys::{self,LibEgl};
 
 pub struct OpenHarmonyApp {
     timers: SelectTimers,
@@ -45,13 +49,15 @@ pub struct OpenHarmonyApp {
 }
 
 #[derive(Debug)]
-pub enum FromOhosMessage {}
+pub enum FromOhosMessage {
+    Init(OpenHarmonyParams),
+}
 
 thread_local! {
     static OHOS_MSG_TX: RefCell<Option<mpsc::Sender<FromOhosMessage>>> = RefCell::new(None);
 }
 
-fn send_from_java_message(message: FromOhosMessage) {
+fn send_from_ohos_message(message: FromOhosMessage) {
     OHOS_MSG_TX.with(|tx| {
         let mut tx = tx.borrow_mut();
         tx.as_mut().unwrap().send(message).unwrap();
@@ -95,44 +101,68 @@ impl Cx {
     where
         F: FnOnce() -> Box<Cx> + Send + 'static,
     {
+        std::panic::set_hook(Box::new(|info| {
+            crate::log!("Custom panic hook: {}", info);
+        }));
+
         if let Ok(xcomponent) = exports.get_named_property::<JsObject>("__NATIVE_XCOMPONENT_OBJ__")
         {
-            crate::log!("reginter xcomponent callbacks");
-            let raw = unsafe { xcomponent.raw() };
-            let raw_env = env.raw();
-            let mut native_xcomponent: *mut OH_NativeXComponent = core::ptr::null_mut();
-            unsafe {
-                let res = napi_ohos::sys::napi_unwrap(
-                    raw_env,
-                    raw,
-                    &mut native_xcomponent as *mut *mut OH_NativeXComponent as *mut *mut c_void,
-                );
-                assert!(res == 0);
-            }
-            crate::log!("Got native_xcomponent!");
-            let cbs = Box::new(OH_NativeXComponent_Callback {
-                OnSurfaceCreated: Some(on_surface_created_cb),
-                OnSurfaceChanged: Some(on_surface_changed_cb),
-                OnSurfaceDestroyed: Some(on_surface_destroyed_cb),
-                DispatchTouchEvent: Some(on_dispatch_touch_event_cb),
-            });
-            let res = unsafe {
-                OH_NativeXComponent_RegisterCallback(native_xcomponent, Box::leak(cbs) as *mut _)
+            let _ = Cx::register_xcomponent_callbacks(&env, &xcomponent);
+
+            let (from_ohos_tx, from_ohos_rx) = mpsc::channel();
+            let mut cx = startup();
+            let mut libegl = LibEgl::try_load().expect("Cant load LibEGL");
+            let window = loop {
+                match from_ohos_rx.try_recv() {
+                    Ok(FromOhosMessage::Init(params)) => {
+                        cx.os_type = OsType::OpenHarmony(params);
+                        cx.os.dpi_factor = params.display_density;
+                    }
+                    _ => {}
+
+                }
             };
-            if res != 0 {
-                crate::error!("Failed to register callbacks");
-            } else {
-                crate::log!("Registerd callbacks successfully");
-            }
+
         } else {
             crate::log!("Failed to get xcomponent in ohos_init");
         }
     }
 
+    fn register_xcomponent_callbacks(env: &Env, xcomponent: &JsObject) -> napi_ohos::Result<()> {
+        crate::log!("reginter xcomponent callbacks");
+        let raw = unsafe { xcomponent.raw() };
+        let raw_env = env.raw();
+        let mut native_xcomponent: *mut OH_NativeXComponent = core::ptr::null_mut();
+        unsafe {
+            let res = napi_ohos::sys::napi_unwrap(
+                raw_env,
+                raw,
+                &mut native_xcomponent as *mut *mut OH_NativeXComponent as *mut *mut c_void,
+            );
+            assert!(res == 0);
+        }
+        crate::log!("Got native_xcomponent!");
+        let cbs = Box::new(OH_NativeXComponent_Callback {
+            OnSurfaceCreated: Some(on_surface_created_cb),
+            OnSurfaceChanged: Some(on_surface_changed_cb),
+            OnSurfaceDestroyed: Some(on_surface_destroyed_cb),
+            DispatchTouchEvent: Some(on_dispatch_touch_event_cb),
+        });
+        let res = unsafe {
+            OH_NativeXComponent_RegisterCallback(native_xcomponent, Box::leak(cbs) as *mut _)
+        };
+        if res != 0 {
+            crate::error!("Failed to register callbacks");
+        } else {
+            crate::log!("Registerd callbacks successfully");
+        }
+        Ok(())
+    }
+
     pub fn event_loop(cx: Rc<RefCell<Cx>>) {
         let mut cx = cx.borrow_mut();
 
-        cx.os_type = OsType::OpenHarmony(OpenHarmonyParams {});
+        //cx.os_type = OsType::OpenHarmony(OpenHarmonyParams {});
         cx.gpu_info.performance = GpuPerformance::Tier1;
 
         cx.call_event_handler(&Event::Startup);
@@ -377,16 +407,19 @@ impl CxOsApi for Cx {
     }
 }
 
-pub struct CxOs {
-    pub media: CxOpenHarmonyMedia,
-    pub(crate) start_time: Instant,
+pub struct CxOhosDisplay {
+    libegl: LibEgl,
+    egl_display: egl_sys::EGLDisplay,
+    egl_config: egl_sys::EGLConfig,
+    egl_context: egl_sys::EGLContext,
+    surface: egl_sys::EGLSurface,
+    window: *mut c_void
+    //event_handler: Box<dyn EventHandler>,
 }
 
-impl Default for CxOs {
-    fn default() -> Self {
-        Self {
-            start_time: Instant::now(),
-            media: Default::default(),
-        }
-    }
+pub struct CxOs {
+    pub xcomponent: *mut OH_NativeXComponent,
+    pub dpi_factor: f64,
+    pub media: CxOpenHarmonyMedia,
+    pub(crate) start_time: Instant,
 }
