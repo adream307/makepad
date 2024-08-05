@@ -101,7 +101,7 @@ macro_rules!app_main {
                 cx.init_cx_os();
                 cx
             })
-            Ok(());
+            Ok(())
         }
         
         #[cfg(target_arch = "wasm32")]
