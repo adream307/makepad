@@ -138,7 +138,7 @@ pub struct AndroidParams {
     pub kernel_version: String
 }
 
-#[napi(object)]
+#[napi_derive_ohos::napi(object)]
 #[derive(Clone, Debug)]
 pub struct OpenHarmonyParams {
     pub device_type: String,
