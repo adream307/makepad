@@ -51,6 +51,16 @@ pub struct OpenHarmonyApp {
 #[derive(Debug)]
 pub enum FromOhosMessage {
     Init(OpenHarmonyParams),
+    SurfaceChanged {
+        window: *mut c_void,
+        width: i32,
+        height: i32
+    },
+    SurfaceCreated {
+        window: *mut c_void,
+        width: i32,
+        height: i32
+    },
 }
 
 thread_local! {
@@ -115,11 +125,17 @@ impl Cx {
             let window = loop {
                 match from_ohos_rx.try_recv() {
                     Ok(FromOhosMessage::Init(params)) => {
-                        cx.os_type = OsType::OpenHarmony(params);
                         cx.os.dpi_factor = params.display_density;
+                        cx.os_type = OsType::OpenHarmony(params);
                     }
+                    Ok(FromOhosMessage::SurfaceCreated {
+                        window,
+                        width,
+                        height }) => {
+                            cx.os.display_size = dvec2(width as f64, height as f64);
+                            break window;
+                        }
                     _ => {}
-
                 }
             };
 
@@ -418,8 +434,19 @@ pub struct CxOhosDisplay {
 }
 
 pub struct CxOs {
-    pub xcomponent: *mut OH_NativeXComponent,
+    pub display_size: DVec2,
     pub dpi_factor: f64,
     pub media: CxOpenHarmonyMedia,
     pub(crate) start_time: Instant,
+}
+
+impl Default for CxOs{
+    fn default() -> Self {
+        Self {
+            display_size: dvec2(100 as f64, 100 as f64),
+            dpi_factor: 1.5,
+            media: Default::default(),
+            start_time: Instant::now()
+        }
+    }
 }
