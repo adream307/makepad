@@ -40,6 +40,14 @@ use std::{ffi::CString, os::raw::c_void};
 use std::ptr::null;
 use std::sync::mpsc;
 
+// Todo: in the future these libraries should be added by Rust sys-crates
+#[link(name = "ace_napi.z")]
+#[link(name = "ace_ndk.z")]
+#[link(name = "hilog_ndk.z")]
+#[link(name = "native_window")]
+#[link(name = "clang_rt.builtins", kind = "static")]
+extern "C" {}
+
 pub struct OpenHarmonyApp {
     timers: SelectTimers,
     dpi_factor: f64,
@@ -144,7 +152,6 @@ impl Cx {
     pub fn main_loop(&mut self, from_ohos_rx:mpsc::Receiver<FromOhosMessage>){
 
     }
-
 
     pub fn ohos_init<F>(exports: JsObject, env: Env, startup: F)
     where
