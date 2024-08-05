@@ -50,7 +50,7 @@ pub struct OpenHarmonyApp {
 
 #[derive(Debug)]
 pub enum FromOhosMessage {
-    Init(OpenHarmonyParams),
+    Init(OpenHarmonyInitOptions),
     SurfaceChanged {
         window: *mut c_void,
         width: i32,
@@ -61,6 +61,14 @@ pub enum FromOhosMessage {
         width: i32,
         height: i32,
     },
+}
+
+#[napi(object)]
+#[derive(Clone, Debug)]
+pub struct OpenHarmonyInitOptions {
+    pub device_type: String,
+    pub os_full_name: String,
+    pub display_density: f64,
 }
 
 unsafe impl Send for FromOhosMessage {}
@@ -160,7 +168,7 @@ impl Cx {
                     match from_ohos_rx.try_recv() {
                         Ok(FromOhosMessage::Init(params)) => {
                             cx.os.dpi_factor = params.display_density;
-                            cx.os_type = OsType::OpenHarmony(params);
+                            cx.os_type = OsType::OpenHarmony(OpenHarmonyParams { device_type: params.device_type, os_full_name: params.os_full_name, display_density: params.display_density });
                         }
                         Ok(FromOhosMessage::SurfaceCreated {
                             window,
