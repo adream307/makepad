@@ -63,6 +63,8 @@ pub enum FromOhosMessage {
     },
 }
 
+unsafe impl Send for FromOhosMessage {}
+
 thread_local! {
     static OHOS_MSG_TX: RefCell<Option<mpsc::Sender<FromOhosMessage>>> = RefCell::new(None);
 }
@@ -121,7 +123,7 @@ impl Cx {
 
             let (from_ohos_tx, from_ohos_rx) = mpsc::channel();
 
-            // std::thread::spawn(move || {
+            std::thread::spawn(move || {
                 let mut cx = startup();
                 let mut libegl = LibEgl::try_load().expect("Cant load LibEGL");
                 let window = loop {
@@ -167,9 +169,7 @@ impl Cx {
                     egl_context,surface,
                     window
                 });
-
-
-            // });
+            });
         } else {
             crate::log!("Failed to get xcomponent in ohos_init");
         }
