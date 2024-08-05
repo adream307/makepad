@@ -103,7 +103,18 @@ pub extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, wi
 }
 
 #[no_mangle]
-pub extern "C" fn on_surface_changed_cb(component: *mut OH_NativeXComponent, window: *mut c_void) {
+pub extern "C" fn on_surface_changed_cb(xcomponent: *mut OH_NativeXComponent, window: *mut c_void) {
+    let mut width :u64 = 0;
+    let mut height :u64 = 0;
+
+    let ret = unsafe {OH_NativeXComponent_GetXComponentSize(
+        xcomponent,
+        window,
+        & mut width,
+        & mut height)};
+
+    crate::log!("OnSurfaceChangeCallBack={},width={},hight={}",ret,width,height);
+    send_from_ohos_message(FromOhosMessage::SurfaceChanged { window, width: width as i32, height:height as i32 });
 }
 
 #[no_mangle]
