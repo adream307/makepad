@@ -45,7 +45,6 @@ use std::sync::mpsc;
 #[link(name = "ace_ndk.z")]
 #[link(name = "hilog_ndk.z")]
 #[link(name = "native_window")]
-#[link(name = "clang_rt.builtins", kind = "static")]
 extern "C" {}
 
 pub struct OpenHarmonyApp {
