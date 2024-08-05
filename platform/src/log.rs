@@ -88,6 +88,21 @@ pub fn log_with_level(file_name:&str, line_start:u32, column_start:u32, line_end
            let msg = format!("{}:{}:{} - {}\0", file_name, line_start, column_start, message);
            unsafe{__android_log_write(3, "Makepad\0".as_ptr(), msg.as_ptr())};
        }
+       #[cfg(target_env="ohos")]
+       {
+            match level {
+                LogLevel::Warning =>{
+                    log_crate::warn!(message)
+                }
+                LogLevel::Error => {
+                    log_crate::err!(message)
+                }
+                LogLevel::Log => {
+                    log_crate::info!(message)
+                }
+                _ => {}
+            }
+       }
     }
     else{
        Cx::send_studio_message(AppToStudio::LogItem(StudioLogItem{
