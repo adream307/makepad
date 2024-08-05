@@ -148,6 +148,12 @@ pub extern "C" fn on_dispatch_touch_event_cb(
 ) {
 }
 
+#[napi]
+pub fn init_makepad(init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()>{
+    send_from_ohos_message(FromOhosMessage::Init(init_opts));
+    Ok(())
+}
+
 impl Cx {
     pub fn main_loop(&mut self, from_ohos_rx:mpsc::Receiver<FromOhosMessage>){
 
