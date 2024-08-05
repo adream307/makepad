@@ -34,7 +34,7 @@ use napi_ohos::{Env, JsFunction, JsObject, JsString, NapiRaw};
 use ohos_sys::xcomponent::{
     self, OH_NativeXComponent, OH_NativeXComponent_Callback, OH_NativeXComponent_GetTouchEvent,
     OH_NativeXComponent_RegisterCallback, OH_NativeXComponent_TouchEvent,
-    OH_NativeXComponent_TouchEventType,
+    OH_NativeXComponent_TouchEventType,OH_NativeXComponent_GetXComponentSize
 };
 use std::{ffi::CString, os::raw::c_void};
 use std::ptr::null;
@@ -89,10 +89,22 @@ impl OpenHarmonyApp {
 
 #[no_mangle]
 pub extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, window: *mut c_void) {
+    let mut width :u64 = 0;
+    let mut height :u64 = 0;
+
+    let ret = unsafe {OH_NativeXComponent_GetXComponentSize(
+        xcomponent,
+        window,
+        & mut width,
+        & mut height)};
+
+    crate::log!("OnSurfaceCreateCallBack={},width={},hight={}",ret,width,height);
+    send_from_ohos_message(FromOhosMessage::SurfaceCreated { window, width: width as i32, height:height as i32 });
 }
 
 #[no_mangle]
-pub extern "C" fn on_surface_changed_cb(component: *mut OH_NativeXComponent, window: *mut c_void) {}
+pub extern "C" fn on_surface_changed_cb(component: *mut OH_NativeXComponent, window: *mut c_void) {
+}
 
 #[no_mangle]
 pub extern "C" fn on_surface_destroyed_cb(
@@ -128,7 +140,7 @@ impl Cx {
 
             let (from_ohos_tx, from_ohos_rx) = mpsc::channel();
             OHOS_MSG_TX.with(move |message_tx| *message_tx.borrow_mut() = Some(from_ohos_tx));
-            
+
             std::thread::spawn(move || {
                 let mut cx = startup();
                 let mut libegl = LibEgl::try_load().expect("Cant load LibEGL");
@@ -177,6 +189,7 @@ impl Cx {
                 });
 
                 cx.main_loop(from_ohos_rx);
+                //TODO, destroy surface
             });
         } else {
             crate::log!("Failed to get xcomponent in ohos_init");
