@@ -100,7 +100,7 @@ macro_rules!app_main {
                 live_design(&mut cx);
                 cx.init_cx_os();
                 cx
-            })
+            });
             Ok(())
         }
         
