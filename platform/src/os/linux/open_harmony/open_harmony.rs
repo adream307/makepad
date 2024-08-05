@@ -98,7 +98,7 @@ pub extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, wi
         & mut width,
         & mut height)};
 
-    crate::log!("OnSurfaceCreateCallBack={},width={},hight={}",ret,width,height);
+    crate::log!("OnSurfaceCreateCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",ret,width,height);
     send_from_ohos_message(FromOhosMessage::SurfaceCreated { window, width: width as i32, height:height as i32 });
 }
 
@@ -113,7 +113,7 @@ pub extern "C" fn on_surface_changed_cb(xcomponent: *mut OH_NativeXComponent, wi
         & mut width,
         & mut height)};
 
-    crate::log!("OnSurfaceChangeCallBack={},width={},hight={}",ret,width,height);
+    crate::log!("OnSurfaceChangeCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",ret,width,height);
     send_from_ohos_message(FromOhosMessage::SurfaceChanged { window, width: width as i32, height:height as i32 });
 }
 
@@ -122,6 +122,7 @@ pub extern "C" fn on_surface_destroyed_cb(
     component: *mut OH_NativeXComponent,
     window: *mut c_void,
 ) {
+    crate::log!("OnSurcefaceDestroyCallBack");
 }
 
 #[no_mangle]
