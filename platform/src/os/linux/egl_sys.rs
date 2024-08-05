@@ -503,13 +503,11 @@ pub unsafe fn create_egl_context(
 
 #[cfg(target_env="ohos")]
 pub unsafe  fn create_egl_context(
-    egl: &mut LibEgl,
-    display: *mut std::os::raw::c_void,
-    alpha:bool
+    egl: &mut LibEgl
 ) -> Result<(EGLContext, EGLConfig, EGLDisplay), EglError> {
     use napi_ohos::sys::PropertyAttributes::configurable;
 
-    let display = (egl.eglGetDisplay.unwrap())(display as _);
+    let display = (egl.eglGetDisplay.unwrap())(null_mut());
     if display == null_mut() {
         return Err(EglError::NoDisplay);
     }
