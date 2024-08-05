@@ -90,18 +90,9 @@ pub fn log_with_level(file_name:&str, line_start:u32, column_start:u32, line_end
        }
        #[cfg(target_env="ohos")]
        {
-            match level {
-                LogLevel::Warning =>{
-                    log_crate::warn!(message)
-                }
-                LogLevel::Error => {
-                    log_crate::err!(message)
-                }
-                LogLevel::Log => {
-                    log_crate::info!(message)
-                }
-                _ => {}
-            }
+            let msg = format!("{}:{}:{} - {}\0", file_name, line_start, column_start, message);
+            unsafe {hilog_sys::OH_LOG_Print(hilog_sys::LogType::LOG_APP,
+                hilog_sys::LogLevel::LOG_INFO, 0,c"makepad-ohos".as_ptr(), msg.as_ptr())};
        }
     }
     else{
