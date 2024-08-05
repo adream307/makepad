@@ -109,6 +109,11 @@ pub extern "C" fn on_dispatch_touch_event_cb(
 }
 
 impl Cx {
+    pub fn main_loop(&mut self, from_ohos_rx:mpsc::Receiver<FromOhosMessage>){
+
+    }
+
+
     pub fn ohos_init<F>(exports: JsObject, env: Env, startup: F)
     where
         F: FnOnce() -> Box<Cx> + Send + 'static,
@@ -122,7 +127,8 @@ impl Cx {
             let _ = Cx::register_xcomponent_callbacks(&env, &xcomponent);
 
             let (from_ohos_tx, from_ohos_rx) = mpsc::channel();
-
+            OHOS_MSG_TX.with(move |message_tx| *message_tx.borrow_mut() = Some(from_ohos_tx));
+            
             std::thread::spawn(move || {
                 let mut cx = startup();
                 let mut libegl = LibEgl::try_load().expect("Cant load LibEGL");
@@ -169,6 +175,8 @@ impl Cx {
                     egl_context,surface,
                     window
                 });
+
+                cx.main_loop(from_ohos_rx);
             });
         } else {
             crate::log!("Failed to get xcomponent in ohos_init");
