@@ -1,4 +1,4 @@
-use crate::event::window;
+use crate::{egl_sys::{EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE}, event::window};
 
 use {
     self::super::super::{gl_sys, select_timer::SelectTimers},
@@ -24,6 +24,7 @@ use {
 
 //----------------------
 
+use self::super::super::egl_sys::{self, LibEgl};
 use napi_derive_ohos::{module_exports, napi};
 use napi_ohos::bindgen_prelude::Undefined;
 use napi_ohos::threadsafe_function::{
@@ -35,10 +36,9 @@ use ohos_sys::xcomponent::{
     OH_NativeXComponent_RegisterCallback, OH_NativeXComponent_TouchEvent,
     OH_NativeXComponent_TouchEventType,
 };
-use std::os::raw::c_void;
+use std::{ffi::CString, os::raw::c_void};
 use std::ptr::null;
 use std::sync::mpsc;
-use self::super::super::egl_sys::{self,LibEgl};
 
 pub struct OpenHarmonyApp {
     timers: SelectTimers,
@@ -54,12 +54,12 @@ pub enum FromOhosMessage {
     SurfaceChanged {
         window: *mut c_void,
         width: i32,
-        height: i32
+        height: i32,
     },
     SurfaceCreated {
         window: *mut c_void,
         width: i32,
-        height: i32
+        height: i32,
     },
 }
 
@@ -120,25 +120,56 @@ impl Cx {
             let _ = Cx::register_xcomponent_callbacks(&env, &xcomponent);
 
             let (from_ohos_tx, from_ohos_rx) = mpsc::channel();
-            let mut cx = startup();
-            let mut libegl = LibEgl::try_load().expect("Cant load LibEGL");
-            let window = loop {
-                match from_ohos_rx.try_recv() {
-                    Ok(FromOhosMessage::Init(params)) => {
-                        cx.os.dpi_factor = params.display_density;
-                        cx.os_type = OsType::OpenHarmony(params);
-                    }
-                    Ok(FromOhosMessage::SurfaceCreated {
-                        window,
-                        width,
-                        height }) => {
+
+            // std::thread::spawn(move || {
+                let mut cx = startup();
+                let mut libegl = LibEgl::try_load().expect("Cant load LibEGL");
+                let window = loop {
+                    match from_ohos_rx.try_recv() {
+                        Ok(FromOhosMessage::Init(params)) => {
+                            cx.os.dpi_factor = params.display_density;
+                            cx.os_type = OsType::OpenHarmony(params);
+                        }
+                        Ok(FromOhosMessage::SurfaceCreated {
+                            window,
+                            width,
+                            height,
+                        }) => {
                             cx.os.display_size = dvec2(width as f64, height as f64);
                             break window;
                         }
-                    _ => {}
-                }
-            };
+                        _ => {}
+                    }
+                };
+                let (egl_context, egl_config, egl_display ) = unsafe {
+                    egl_sys::create_egl_context(&mut libegl).expect("Can't create EGL context")};
+                unsafe { gl_sys::load_with(|s| {
+                    let s = CString::new(s).unwrap();
+                    libegl.eglGetProcAddress.unwrap()(s.as_ptr())
+                })};
 
+                let win_attr = vec![EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE];
+                let surface = unsafe {(libegl.eglCreateWindowSurface.unwrap())(
+                    egl_display,
+                    egl_context,
+                    window as _,
+                    win_attr.as_ptr() as _
+                )};
+
+                if unsafe {(libegl.eglMakeCurrent.unwrap())(egl_display,surface,surface,egl_context)}==0{
+                    panic!();
+                }
+
+                cx.os.display = Some(CxOhosDisplay{
+                    libegl,
+                    egl_display,
+                    egl_config,
+                    egl_context,surface,
+                    window
+                });
+
+
+            // });
         } else {
             crate::log!("Failed to get xcomponent in ohos_init");
         }
@@ -429,8 +460,7 @@ pub struct CxOhosDisplay {
     egl_config: egl_sys::EGLConfig,
     egl_context: egl_sys::EGLContext,
     surface: egl_sys::EGLSurface,
-    window: *mut c_void
-    //event_handler: Box<dyn EventHandler>,
+    window: *mut c_void, //event_handler: Box<dyn EventHandler>,
 }
 
 pub struct CxOs {
@@ -438,15 +468,17 @@ pub struct CxOs {
     pub dpi_factor: f64,
     pub media: CxOpenHarmonyMedia,
     pub(crate) start_time: Instant,
+    pub(crate) display : Option<CxOhosDisplay>,
 }
 
-impl Default for CxOs{
+impl Default for CxOs {
     fn default() -> Self {
         Self {
             display_size: dvec2(100 as f64, 100 as f64),
             dpi_factor: 1.5,
             media: Default::default(),
-            start_time: Instant::now()
+            start_time: Instant::now(),
+            display:None
         }
     }
 }
