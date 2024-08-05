@@ -155,7 +155,27 @@ pub fn init_makepad(init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()>{
 }
 
 impl Cx {
-    pub fn main_loop(&mut self, from_ohos_rx:mpsc::Receiver<FromOhosMessage>){
+    fn main_loop(&mut self, from_ohos_rx:mpsc::Receiver<FromOhosMessage>){
+        self.gpu_info.performance = GpuPerformance::Tier1;
+
+        self.call_event_handler(&Event::Startup);
+        self.redraw_all();
+
+        while !self.os.quit {
+            match from_ohos_rx.recv() {
+                Ok(message) =>{
+
+                }
+                Err(e) => {
+                    crate::error!("Error receiving message: {:?}",e)
+                }
+            }
+
+        }
+
+    }
+
+    fn handle_message(&mut self, msg: FromOhosMessage){
 
     }
 
@@ -521,8 +541,10 @@ pub struct CxOs {
     pub display_size: DVec2,
     pub dpi_factor: f64,
     pub media: CxOpenHarmonyMedia,
+    pub quit : bool,
     pub(crate) start_time: Instant,
     pub(crate) display : Option<CxOhosDisplay>,
+
 }
 
 impl Default for CxOs {
@@ -531,6 +553,7 @@ impl Default for CxOs {
             display_size: dvec2(100 as f64, 100 as f64),
             dpi_factor: 1.5,
             media: Default::default(),
+            quit: false,
             start_time: Instant::now(),
             display:None
         }
