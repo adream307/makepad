@@ -84,7 +84,7 @@ macro_rules!app_main {
         #[cfg(target_env = "ohos")]
         #[napi_derive_ohos::module_exports]
         fn init(exports: napi_ohos::JsObject, env: napi_ohos::Env) -> napi_ohos::Result<()> {
-            Cx::ohos_init(exports,,env ||{
+            Cx::ohos_init(exports,env, ||{
                 let app = std::rc::Rc::new(std::cell::RefCell::new(None));
                 let mut cx = Box::new(Cx::new(Box::new(move | cx, event | {
                     if let Event::Startup = event {
