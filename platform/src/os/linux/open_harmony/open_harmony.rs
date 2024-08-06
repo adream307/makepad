@@ -95,9 +95,9 @@ fn send_from_ohos_message(message: FromOhosMessage) {
 impl OpenHarmonyApp {
     fn new() -> Self {
         Self {
-            dpi_factor: 2.0,
-            width: 1000.0,
-            height: 3000.0,
+            dpi_factor: 1.5,
+            width: 1260.0,
+            height: 2954.0,
             timers: SelectTimers::new(),
         }
     }
@@ -158,18 +158,12 @@ pub fn init_makepad(init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()>{
 impl Cx {
     fn main_loop(&mut self, from_ohos_rx:mpsc::Receiver<FromOhosMessage>){
         let mut app = OpenHarmonyApp::new();
-        app.dpi_factor = self.os.dpi_factor;
+        //app.dpi_factor = self.os.dpi_factor;
         app.width = self.os.display_size.x;
         app.height = self.os.display_size.y;
 
         self.gpu_info.performance = GpuPerformance::Tier1;
 
-        // std::thread::spawn(|| {
-        //     while !self.os.quit {
-        //         std::thread::sleep(std::time::Duration::from_millis(100));
-        //         send_from_ohos_message(FromOhosMessage::Paint);
-        //     }
-        // });
 
         self.call_event_handler(&Event::Startup);
         self.redraw_all();
@@ -177,17 +171,6 @@ impl Cx {
         while !self.os.quit {
             std::thread::sleep(std::time::Duration::from_millis(100));
             self.draw_pain(&mut app)
-            // match from_ohos_rx.recv() {
-            //     Ok(FromOhosMessage::Paint) =>{
-            //         self.draw_pain(& mut app);
-            //     }
-            //     Err(e) => {
-            //         crate::error!("Error receiving message: {:?}",e)
-            //     }
-            //     _ =>{
-            //         self.call_draw_event();
-            //     }
-            // }
 
         }
 
