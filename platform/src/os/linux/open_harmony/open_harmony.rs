@@ -97,7 +97,7 @@ impl OpenHarmonyApp {
         Self {
             dpi_factor: 1.5,
             width: 1260.0,
-            height: 2954.0,
+            height: 2594.0,
             timers: SelectTimers::new(),
         }
     }
@@ -114,7 +114,7 @@ pub extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, wi
         & mut width,
         & mut height)};
 
-    crate::log!("OnSurfaceCreateCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",ret,width,height);
+    crate::log!("============== OnSurfaceCreateCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",ret,width,height);
     send_from_ohos_message(FromOhosMessage::SurfaceCreated { window, width: width as i32, height:height as i32 });
 }
 
@@ -129,7 +129,7 @@ pub extern "C" fn on_surface_changed_cb(xcomponent: *mut OH_NativeXComponent, wi
         & mut width,
         & mut height)};
 
-    crate::log!("OnSurfaceChangeCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",ret,width,height);
+    crate::log!("================= OnSurfaceChangeCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",ret,width,height);
     send_from_ohos_message(FromOhosMessage::SurfaceChanged { window, width: width as i32, height:height as i32 });
 }
 
@@ -151,6 +151,7 @@ pub extern "C" fn on_dispatch_touch_event_cb(
 
 #[napi]
 pub fn init_makepad(init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()>{
+    crate::log!("======================== init makepad ==================");
     send_from_ohos_message(FromOhosMessage::Init(init_opts));
     Ok(())
 }
@@ -161,6 +162,8 @@ impl Cx {
         //app.dpi_factor = self.os.dpi_factor;
         app.width = self.os.display_size.x;
         app.height = self.os.display_size.y;
+
+        crate::log!("============== main_loop ================");
 
         self.gpu_info.performance = GpuPerformance::Tier1;
 
@@ -184,6 +187,7 @@ impl Cx {
     where
         F: FnOnce() -> Box<Cx> + Send + 'static,
     {
+        crate::log!("================ ohos init ==================");
         std::panic::set_hook(Box::new(|info| {
             crate::log!("Custom panic hook: {}", info);
         }));
@@ -238,7 +242,8 @@ impl Cx {
                     libegl,
                     egl_display,
                     egl_config,
-                    egl_context,surface,
+                    egl_context,
+                    surface,
                     window
                 });
 
@@ -475,6 +480,7 @@ impl Cx {
 
 impl CxOsApi for Cx {
     fn init_cx_os(&mut self) {
+        self.live_registry.borrow_mut().package_root = Some("/system/fonts".to_string());
         self.live_expand();
         self.live_scan_dependencies();
         self.native_load_dependencies();
