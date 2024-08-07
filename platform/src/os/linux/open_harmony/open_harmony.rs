@@ -229,10 +229,18 @@ impl Cx {
                 let win_attr = vec![EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE];
                 let surface = unsafe {(libegl.eglCreateWindowSurface.unwrap())(
                     egl_display,
-                    egl_context,
+                    egl_config,
                     window as _,
                     win_attr.as_ptr() as _
                 )};
+
+                if surface.is_null(){
+                    let err_code = unsafe {(libegl.eglGetError.unwrap())()};
+                    crate::log!("=============== eglCreateWindowSurface error code:{}", err_code);
+                }
+                assert!(!surface.is_null());
+
+                crate::log!("============== eglCreateWindowSurface success");
 
                 if unsafe {(libegl.eglMakeCurrent.unwrap())(egl_display,surface,surface,egl_context)}==0{
                     panic!();
