@@ -95,9 +95,9 @@ fn send_from_ohos_message(message: FromOhosMessage) {
 impl OpenHarmonyApp {
     fn new() -> Self {
         Self {
-            dpi_factor: 1.5,
+            dpi_factor: 3.25,
             width: 1260.0,
-            height: 2594.0,
+            height: 2503.0,
             timers: SelectTimers::new(),
         }
     }
@@ -172,8 +172,9 @@ impl Cx {
         self.redraw_all();
 
         while !self.os.quit {
+            crate::log!("================== draw paint");
             std::thread::sleep(std::time::Duration::from_millis(100));
-            self.draw_pain(&mut app)
+            self.draw_paint(&mut app)
 
         }
 
@@ -341,7 +342,7 @@ impl Cx {
     //     }
     // }
 
-    fn draw_pain(&mut self, app: &mut OpenHarmonyApp) {
+    fn draw_paint(&mut self, app: &mut OpenHarmonyApp) {
         self.call_draw_event();
         self.opengl_compile_shaders();
         self.handle_repaint(app);
