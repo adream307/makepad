@@ -171,12 +171,14 @@ impl Cx {
         self.call_event_handler(&Event::Startup);
         self.redraw_all();
 
-        while !self.os.quit {
-            crate::log!("================== draw paint,dpi={},width={},height={}",app.dpi_factor,app.width,app.height);
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            self.draw_paint(&mut app)
+        self.draw_paint(&mut app);
 
-        }
+        // while !self.os.quit {
+        //     crate::log!("================== draw paint,dpi={},width={},height={}",app.dpi_factor,app.width,app.height);
+        //     std::thread::sleep(std::time::Duration::from_millis(100));
+        //     self.draw_paint(&mut app)
+
+        // }
 
     }
 
