@@ -172,7 +172,7 @@ impl Cx {
         self.redraw_all();
 
         while !self.os.quit {
-            crate::log!("================== draw paint");
+            crate::log!("================== draw paint,dpi={},width={},height={}",app.dpi_factor,app.width,app.height);
             std::thread::sleep(std::time::Duration::from_millis(100));
             self.draw_paint(&mut app)
 
@@ -343,9 +343,11 @@ impl Cx {
     // }
 
     fn draw_paint(&mut self, app: &mut OpenHarmonyApp) {
+        self.handle_platform_ops(app);
         self.call_draw_event();
         self.opengl_compile_shaders();
         self.handle_repaint(app);
+        unsafe {(self.os.display.as_mut().unwrap().libegl.eglSwapBuffers.unwrap())(self.os.display.as_mut().unwrap().egl_display, self.os.display.as_mut().unwrap().surface)};
     }
 
     // fn oh_event_callback(
@@ -485,6 +487,40 @@ impl Cx {
         }
     }
 
+    fn handle_platform_ops(&mut self, app: &mut OpenHarmonyApp) -> EventFlow {
+        while let Some(op) = self.platform_ops.pop() {
+            crate::log!("============ handle_platform_ops");
+            match op {
+                CxOsOp::CreateWindow(window_id) => {
+                    let window = &mut self.windows[window_id];
+                    let size = dvec2(app.width as f64 / app.dpi_factor, app.height as f64 / app.dpi_factor);
+                    window.window_geom = WindowGeom {
+                        dpi_factor: app.dpi_factor,
+                        can_fullscreen: false,
+                        xr_is_presenting: false,
+                        is_fullscreen: true,
+                        is_topmost: true,
+                        position: dvec2(0.0, 0.0),
+                        inner_size: size,
+                        outer_size: size
+                    };
+                    window.is_created = true;
+                },
+                CxOsOp::SetCursor(_cursor) => {
+                    //xlib_app.set_mouse_cursor(cursor);
+                },
+                CxOsOp::StartTimer {timer_id, interval, repeats} => {
+                    app.timers.start_timer(timer_id, interval, repeats);
+                },
+                CxOsOp::StopTimer(timer_id) => {
+                    app.timers.stop_timer(timer_id);
+                },
+                _ => ()
+            }
+        }
+        EventFlow::Poll
+    }
+
 }
 
 impl CxOsApi for Cx {
@@ -514,12 +550,12 @@ impl CxOsApi for Cx {
 }
 
 pub struct CxOhosDisplay {
-    libegl: LibEgl,
-    egl_display: egl_sys::EGLDisplay,
-    egl_config: egl_sys::EGLConfig,
-    egl_context: egl_sys::EGLContext,
-    surface: egl_sys::EGLSurface,
-    window: *mut c_void, //event_handler: Box<dyn EventHandler>,
+    pub libegl: LibEgl,
+    pub egl_display: egl_sys::EGLDisplay,
+    pub egl_config: egl_sys::EGLConfig,
+    pub egl_context: egl_sys::EGLContext,
+    pub surface: egl_sys::EGLSurface,
+    pub window: *mut c_void, //event_handler: Box<dyn EventHandler>,
 }
 
 pub struct CxOs {
