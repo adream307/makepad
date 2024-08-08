@@ -164,7 +164,8 @@ pub extern "C" fn on_vsync_cb(timestamp: ::core::ffi::c_longlong, data: *mut c_v
         let vsync = data as *mut OH_NativeVSync;
         OH_NativeVSync_RequestFrame(vsync, on_vsync_cb, data)
     };
-    crate::log!("OnVSyncCallBack, timestamp = {}, register call back = {}",timestamp,res);
+    send_from_ohos_message(FromOhosMessage::VSync(data as *mut OH_NativeVSync));
+    //crate::log!("OnVSyncCallBack, timestamp = {}, register call back = {}",timestamp,res);
 }
 
 #[napi]
@@ -206,7 +207,7 @@ impl Cx {
     {
         crate::log!("================ ohos init ==================");
         std::panic::set_hook(Box::new(|info| {
-            crate::log!("Custom panic hook: {}", info);
+            crate::log!("custom panic hook: {}", info);
         }));
 
         if let Ok(xcomponent) = exports.get_named_property::<JsObject>("__NATIVE_XCOMPONENT_OBJ__")
@@ -218,7 +219,7 @@ impl Cx {
 
             std::thread::spawn(move || {
                 let mut cx = startup();
-                let mut libegl = LibEgl::try_load().expect("Cant load LibEGL");
+                let mut libegl = LibEgl::try_load().expect("can't load LibEGL");
                 let window = loop {
                     match from_ohos_rx.try_recv() {
                         Ok(FromOhosMessage::Init(params)) => {
@@ -255,11 +256,11 @@ impl Cx {
 
                 if surface.is_null(){
                     let err_code = unsafe {(libegl.eglGetError.unwrap())()};
-                    crate::log!("=============== eglCreateWindowSurface error code:{}", err_code);
+                    crate::log!("eglCreateWindowSurface error code:{}", err_code);
                 }
                 assert!(!surface.is_null());
 
-                crate::log!("============== eglCreateWindowSurface success");
+                crate::log!("eglCreateWindowSurface success");
 
                 if unsafe {(libegl.eglMakeCurrent.unwrap())(egl_display,surface,surface,egl_context)}==0{
                     panic!();
@@ -514,7 +515,7 @@ impl Cx {
 
     fn handle_platform_ops(&mut self) -> EventFlow {
         while let Some(op) = self.platform_ops.pop() {
-            crate::log!("============ handle_platform_ops");
+            //crate::log!("============ handle_platform_ops");
             match op {
                 CxOsOp::CreateWindow(window_id) => {
                     let window = &mut self.windows[window_id];
