@@ -75,14 +75,6 @@ extern "C" {
 //     >,
 // ) -> i32;
 
-pub struct OpenHarmonyApp {
-    timers: SelectTimers,
-    dpi_factor: f64,
-    width: f64,
-    height: f64,
-    //add egl here etc
-}
-
 #[derive(Debug)]
 pub enum FromOhosMessage {
     Init(OpenHarmonyInitOptions),
@@ -96,7 +88,7 @@ pub enum FromOhosMessage {
         width: i32,
         height: i32,
     },
-    Paint,
+    VSync (*mut OH_NativeVSync)
 }
 
 #[napi(object)]
@@ -118,17 +110,6 @@ fn send_from_ohos_message(message: FromOhosMessage) {
         let mut tx = tx.borrow_mut();
         tx.as_mut().unwrap().send(message).unwrap();
     })
-}
-
-impl OpenHarmonyApp {
-    fn new() -> Self {
-        Self {
-            dpi_factor: 3.25,
-            width: 1260.0,
-            height: 2503.0,
-            timers: SelectTimers::new(),
-        }
-    }
 }
 
 #[no_mangle]
@@ -195,10 +176,6 @@ pub fn init_makepad(init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()>{
 
 impl Cx {
     fn main_loop(&mut self, from_ohos_rx:mpsc::Receiver<FromOhosMessage>){
-        let mut app = OpenHarmonyApp::new();
-        //app.dpi_factor = self.os.dpi_factor;
-        app.width = self.os.display_size.x;
-        app.height = self.os.display_size.y;
 
         crate::log!("============== main_loop ================");
 
@@ -208,7 +185,7 @@ impl Cx {
         self.call_event_handler(&Event::Startup);
         self.redraw_all();
 
-        self.draw_paint(&mut app);
+        self.draw_paint();
 
         // while !self.os.quit {
         //     crate::log!("================== draw paint,dpi={},width={},height={}",app.dpi_factor,app.width,app.height);
@@ -254,11 +231,13 @@ impl Cx {
                             height,
                         }) => {
                             cx.os.display_size = dvec2(width as f64, height as f64);
+                            cx.os.dpi_factor = 3.25; //TODO, get from screen api
                             break window;
                         }
                         _ => {}
                     }
                 };
+
                 let (egl_context, egl_config, egl_display ) = unsafe {
                     egl_sys::create_egl_context(&mut libegl).expect("Can't create EGL context")};
                 unsafe { gl_sys::load_with(|s| {
@@ -388,11 +367,11 @@ impl Cx {
     //     }
     // }
 
-    fn draw_paint(&mut self, app: &mut OpenHarmonyApp) {
-        self.handle_platform_ops(app);
+    fn draw_paint(&mut self) {
+        self.handle_platform_ops();
         self.call_draw_event();
         self.opengl_compile_shaders();
-        self.handle_repaint(app);
+        self.handle_repaint();
         unsafe {(self.os.display.as_mut().unwrap().libegl.eglSwapBuffers.unwrap())(self.os.display.as_mut().unwrap().egl_display, self.os.display.as_mut().unwrap().surface)};
     }
 
@@ -467,7 +446,7 @@ impl Cx {
     //     }
     // }
 
-    pub fn draw_pass_to_fullscreen(&mut self, pass_id: PassId, app: &mut OpenHarmonyApp) {
+    pub fn draw_pass_to_fullscreen(&mut self, pass_id: PassId) {
         let draw_list_id = self.passes[pass_id].main_draw_list_id.unwrap();
 
         self.setup_render_pass(pass_id);
@@ -477,7 +456,7 @@ impl Cx {
 
         unsafe {
             //direct_app.egl.make_current();
-            gl_sys::Viewport(0, 0, app.width as i32, app.height as i32);
+            gl_sys::Viewport(0, 0, self.os.display_size.x as i32, self.os.display_size.y as i32);
         }
 
         let clear_color = if self.passes[pass_id].color_textures.len() == 0 {
@@ -513,15 +492,15 @@ impl Cx {
         //}
     }
 
-    pub(crate) fn handle_repaint(&mut self, app: &mut OpenHarmonyApp) {
+    pub(crate) fn handle_repaint(&mut self) {
         let mut passes_todo = Vec::new();
         self.compute_pass_repaint_order(&mut passes_todo);
         self.repaint_id += 1;
         for pass_id in &passes_todo {
-            self.passes[*pass_id].set_time(app.timers.time_now() as f32);
+            self.passes[*pass_id].set_time(self.os.timers.time_now() as f32);
             match self.passes[*pass_id].parent.clone() {
                 CxPassParent::Window(_window_id) => {
-                    self.draw_pass_to_fullscreen(*pass_id, app);
+                    self.draw_pass_to_fullscreen(*pass_id);
                 }
                 CxPassParent::Pass(_) => {
                     self.draw_pass_to_magic_texture(*pass_id);
@@ -533,15 +512,15 @@ impl Cx {
         }
     }
 
-    fn handle_platform_ops(&mut self, app: &mut OpenHarmonyApp) -> EventFlow {
+    fn handle_platform_ops(&mut self) -> EventFlow {
         while let Some(op) = self.platform_ops.pop() {
             crate::log!("============ handle_platform_ops");
             match op {
                 CxOsOp::CreateWindow(window_id) => {
                     let window = &mut self.windows[window_id];
-                    let size = dvec2(app.width as f64 / app.dpi_factor, app.height as f64 / app.dpi_factor);
+                    let size = dvec2(self.os.display_size.x / self.os.dpi_factor, self.os.display_size.y / self.os.dpi_factor);
                     window.window_geom = WindowGeom {
-                        dpi_factor: app.dpi_factor,
+                        dpi_factor: self.os.dpi_factor,
                         can_fullscreen: false,
                         xr_is_presenting: false,
                         is_fullscreen: true,
@@ -556,10 +535,10 @@ impl Cx {
                     //xlib_app.set_mouse_cursor(cursor);
                 },
                 CxOsOp::StartTimer {timer_id, interval, repeats} => {
-                    app.timers.start_timer(timer_id, interval, repeats);
+                    self.os.timers.start_timer(timer_id, interval, repeats);
                 },
                 CxOsOp::StopTimer(timer_id) => {
-                    app.timers.stop_timer(timer_id);
+                    self.os.timers.stop_timer(timer_id);
                 },
                 _ => ()
             }
@@ -609,6 +588,7 @@ pub struct CxOs {
     pub dpi_factor: f64,
     pub media: CxOpenHarmonyMedia,
     pub quit : bool,
+    pub timers: SelectTimers,
     pub(crate) start_time: Instant,
     pub(crate) display : Option<CxOhosDisplay>,
 
@@ -617,10 +597,11 @@ pub struct CxOs {
 impl Default for CxOs {
     fn default() -> Self {
         Self {
-            display_size: dvec2(100 as f64, 100 as f64),
-            dpi_factor: 1.5,
+            display_size: dvec2(1260 as f64, 2503 as f64),
+            dpi_factor: 3.25,
             media: Default::default(),
             quit: false,
+            timers: SelectTimers::new(),
             start_time: Instant::now(),
             display:None
         }
