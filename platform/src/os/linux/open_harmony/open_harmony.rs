@@ -179,7 +179,11 @@ pub extern "C" fn on_dispatch_touch_event_cb(
 
 #[no_mangle]
 pub extern "C" fn on_vsync_cb(timestamp: ::core::ffi::c_longlong, data: *mut c_void) {
-    crate::log!("OnVSyncCallBack, timestamp = {}",timestamp);
+    let res = unsafe {
+        let vsync = data as *mut OH_NativeVSync;
+        OH_NativeVSync_RequestFrame(vsync, on_vsync_cb, data)
+    };
+    crate::log!("OnVSyncCallBack, timestamp = {}, register call back = {}",timestamp,res);
 }
 
 #[napi]
@@ -330,7 +334,7 @@ impl Cx {
             crate::log!("Registerd callbacks successfully");
         }
         let vsync = unsafe { OH_NativeVSync_Create(c"makepad".as_ptr(), 7)};
-        let res = unsafe {OH_NativeVSync_RequestFrame(vsync, on_vsync_cb, null_mut())};
+        let res = unsafe {OH_NativeVSync_RequestFrame(vsync, on_vsync_cb, vsync as * mut c_void)};
         if res != 0 {
             crate::error!("Failed to register vsync callbacks");
         } else {
