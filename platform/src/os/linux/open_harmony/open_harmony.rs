@@ -105,7 +105,7 @@ thread_local! {
     static OHOS_MSG_TX: RefCell<Option<mpsc::Sender<FromOhosMessage>>> = RefCell::new(None);
 }
 
-fn ohos_init_globals(from_ohos_tx: mpsc::Sender<FromJavaMessage>)
+fn ohos_init_globals(from_ohos_tx: mpsc::Sender<FromOhosMessage>)
 {
     OHOS_MSG_TX.with(move |messages_tx| *messages_tx.borrow_mut() = Some(from_ohos_tx));
 }
