@@ -186,15 +186,30 @@ impl Cx {
         self.call_event_handler(&Event::Startup);
         self.redraw_all();
 
-        self.draw_paint();
+        // self.draw_paint();
 
-        // while !self.os.quit {
-        //     crate::log!("================== draw paint,dpi={},width={},height={}",app.dpi_factor,app.width,app.height);
-        //     std::thread::sleep(std::time::Duration::from_millis(100));
-        //     self.draw_paint(&mut app)
+        while !self.os.quit {
+            match from_ohos_rx.recv() {
+                Ok(FromOhosMessage::VSync(vsyn)) => {
+                    self.handle_all_pending_messages(&from_ohos_rx);
+                }
+                Ok(message) => {
+                    self.handle_message(message)
+                }
+                Err(e) => {
+                    crate::error!("Error receiving message: {:?}",e);
+                }
+            }
 
-        // }
+        }
 
+    }
+
+    fn handle_all_pending_messages(&mut self, from_ohos_rx: &mpsc::Receiver<FromOhosMessage>) {
+        // Handle the messages that arrived during the last frame
+        while let Ok(msg) = from_ohos_rx.try_recv() {
+            self.handle_message(msg);
+        }
     }
 
     fn handle_message(&mut self, msg: FromOhosMessage){
@@ -373,7 +388,8 @@ impl Cx {
         self.call_draw_event();
         self.opengl_compile_shaders();
         self.handle_repaint();
-        unsafe {(self.os.display.as_mut().unwrap().libegl.eglSwapBuffers.unwrap())(self.os.display.as_mut().unwrap().egl_display, self.os.display.as_mut().unwrap().surface)};
+        unsafe {self.os.display.as_mut().unwrap().swap_buffers()};
+        //unsafe {(self.os.display.as_mut().unwrap().libegl.eglSwapBuffers.unwrap())(self.os.display.as_mut().unwrap().egl_display, self.os.display.as_mut().unwrap().surface)};
     }
 
     // fn oh_event_callback(
@@ -607,4 +623,58 @@ impl Default for CxOs {
             display:None
         }
     }
+}
+
+impl CxOhosDisplay {
+    unsafe fn destroy_surface(&mut self) {
+        (self.libegl.eglMakeCurrent.unwrap())(
+            self.egl_display,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        );
+        (self.libegl.eglDestroySurface.unwrap())(self.egl_display, self.surface);
+        self.surface = std::ptr::null_mut();
+    }
+
+    unsafe fn update_surface(&mut self, window:  *mut c_void) {
+        if !self.window.is_null() {
+            //todo release window
+        }
+        self.window = window;
+        if self.surface.is_null() == false {
+            self.destroy_surface();
+        }
+
+        let win_attr = vec![EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE];
+        self.surface = (self.libegl.eglCreateWindowSurface.unwrap())(
+            self.egl_display,
+            self.egl_config,
+            self.window as _,
+            win_attr.as_ptr() as _
+        );
+
+        if self.surface.is_null(){
+            let err_code = unsafe {(self.libegl.eglGetError.unwrap())()};
+            crate::log!("eglCreateWindowSurface error code:{}", err_code);
+        }
+
+        assert!(!self.surface.is_null());
+
+        let res = (self.libegl.eglMakeCurrent.unwrap())(
+            self.egl_display,
+            self.surface,
+            self.surface,
+            self.egl_context,
+        );
+        assert!(res != 0);
+    }
+
+    unsafe fn swap_buffers(&mut self) {
+        (self.libegl.eglSwapBuffers.unwrap())(
+            self.egl_display,
+            self.surface
+        );
+    }
+
 }
