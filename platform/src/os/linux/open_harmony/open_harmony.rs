@@ -154,11 +154,14 @@ pub extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent
 
 #[no_mangle]
 pub extern "C" fn on_vsync_cb(timestamp: ::core::ffi::c_longlong, data: *mut c_void) {
+    send_from_ohos_message(FromOhosMessage::VSync(data as *mut OH_NativeVSync));
     let res = unsafe {
         let vsync = data as *mut OH_NativeVSync;
         OH_NativeVSync_RequestFrame(vsync, on_vsync_cb, data)
     };
-    //send_from_ohos_message(FromOhosMessage::VSync(data as *mut OH_NativeVSync));
+    if res !=0 {
+        crate::error!("Failed to register vsync callbacks");
+    }
     //crate::log!("OnVSyncCallBack, timestamp = {}, register call back = {}",timestamp,res);
 }
 
@@ -283,6 +286,7 @@ impl Cx {
                     surface,
                     window
                 });
+                Cx::register_vsync_callback();
 
                 cx.main_loop(from_ohos_rx);
                 //TODO, destroy surface
@@ -322,6 +326,11 @@ impl Cx {
         } else {
             crate::log!("Registerd callbacks successfully");
         }
+        Ok(())
+    }
+
+    fn register_vsync_callback() {
+        //vsync call back
         let vsync = unsafe { OH_NativeVSync_Create(c"makepad".as_ptr(), 7)};
         let res = unsafe {OH_NativeVSync_RequestFrame(vsync, on_vsync_cb, vsync as * mut c_void)};
         if res != 0 {
@@ -329,7 +338,6 @@ impl Cx {
         } else {
             crate::log!("Registerd callbacks vsync successfully");
         }
-        Ok(())
     }
 
     // pub fn event_loop(cx: Rc<RefCell<Cx>>) {
