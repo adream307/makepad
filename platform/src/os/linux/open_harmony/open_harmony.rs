@@ -107,9 +107,14 @@ thread_local! {
 
 fn send_from_ohos_message(message: FromOhosMessage) {
     OHOS_MSG_TX.with(|tx| {
-        let mut tx = tx.borrow_mut();
-        tx.as_mut().unwrap().send(message).unwrap();
-    })
+        loop{
+            let mut tx = tx.borrow_mut();
+            if !tx.is_none(){
+                tx.as_mut().unwrap().send(message).unwrap();
+                break;
+            }
+        }
+    });
 }
 
 #[no_mangle]
