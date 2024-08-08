@@ -1,4 +1,4 @@
-use crate::{egl_sys::{EGL_GL_COLORSPACE_KHR,EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE}, event::window};
+use crate::{egl_sys::{create_egl_context, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE}, event::window};
 
 use {
     self::super::super::{gl_sys, select_timer::SelectTimers},
@@ -36,7 +36,7 @@ use ohos_sys::xcomponent::{
     OH_NativeXComponent_RegisterCallback, OH_NativeXComponent_TouchEvent,
     OH_NativeXComponent_TouchEventType,OH_NativeXComponent_GetXComponentSize
 };
-use std::{ffi::CString, os::raw::c_void};
+use std::{ffi::CString, os::raw::c_void, ptr::null_mut};
 use std::ptr::null;
 use std::sync::mpsc;
 
@@ -46,6 +46,34 @@ use std::sync::mpsc;
 #[link(name = "hilog_ndk.z")]
 #[link(name = "native_window")]
 extern "C" {}
+
+#[repr(C)]
+pub struct OH_NativeVSync {
+    _unused: [u8; 0],
+}
+
+#[link(name = "native_vsync")]
+extern "C" {
+    pub fn OH_NativeVSync_Create(name:* const::core::ffi::c_char, length: ::core::ffi::c_uint) -> * mut OH_NativeVSync;
+    pub fn OH_NativeVSync_Destroy(nativeVsync: *mut OH_NativeVSync) -> ::core::ffi::c_void;
+    pub fn OH_NativeVSync_RequestFrame(
+        nativeVsync: *mut OH_NativeVSync,
+        callback : extern "C" fn (timestamp: ::core::ffi::c_longlong, data: *mut ::core::ffi::c_void),
+        data: *mut ::core::ffi::c_void) -> ::core::ffi::c_int;
+    pub fn OH_NativeVSync_GetPeriod (
+        nativeVsync:  *mut OH_NativeVSync,
+        period: * mut ::core::ffi::c_longlong) -> ::core::ffi::c_int;
+}
+
+// pub fn OH_NativeXComponent_RegisterFocusEventCallback(
+//     component: *mut OH_NativeXComponent,
+//     callback: ::core::option::Option<
+//         unsafe extern "C" fn(
+//             component: *mut OH_NativeXComponent,
+//             window: *mut ::core::ffi::c_void,
+//         ),
+//     >,
+// ) -> i32;
 
 pub struct OpenHarmonyApp {
     timers: SelectTimers,
@@ -147,6 +175,11 @@ pub extern "C" fn on_dispatch_touch_event_cb(
     window: *mut c_void,
 ) {
     crate::log!("OnDispatchTouchEventCallBack");
+}
+
+#[no_mangle]
+pub extern "C" fn on_vsync_cb(timestamp: ::core::ffi::c_longlong, data: *mut c_void) {
+    crate::log!("OnVSyncCallBack, timestamp = {}",timestamp);
 }
 
 #[napi]
@@ -295,6 +328,13 @@ impl Cx {
             crate::error!("Failed to register callbacks");
         } else {
             crate::log!("Registerd callbacks successfully");
+        }
+        let vsync = unsafe { OH_NativeVSync_Create(c"makepad".as_ptr(), 7)};
+        let res = unsafe {OH_NativeVSync_RequestFrame(vsync, on_vsync_cb, null_mut())};
+        if res != 0 {
+            crate::error!("Failed to register vsync callbacks");
+        } else {
+            crate::log!("Registerd callbacks vsync successfully");
         }
         Ok(())
     }
