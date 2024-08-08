@@ -224,10 +224,10 @@ impl Cx {
 
         if let Ok(xcomponent) = exports.get_named_property::<JsObject>("__NATIVE_XCOMPONENT_OBJ__")
         {
-            let _ = Cx::register_xcomponent_callbacks(&env, &xcomponent);
-
             let (from_ohos_tx, from_ohos_rx) = mpsc::channel();
             OHOS_MSG_TX.with(move |message_tx| *message_tx.borrow_mut() = Some(from_ohos_tx));
+
+            let _ = Cx::register_xcomponent_callbacks(&env, &xcomponent);
 
             std::thread::spawn(move || {
                 let mut cx = startup();
