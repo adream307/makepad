@@ -105,15 +105,17 @@ thread_local! {
     static OHOS_MSG_TX: RefCell<Option<mpsc::Sender<FromOhosMessage>>> = RefCell::new(None);
 }
 
+fn ohos_init_globals(from_ohos_tx: mpsc::Sender<FromJavaMessage>)
+{
+    OHOS_MSG_TX.with(move |messages_tx| *messages_tx.borrow_mut() = Some(from_ohos_tx));
+}
+
 fn send_from_ohos_message(message: FromOhosMessage) {
     OHOS_MSG_TX.with(|tx| {
-        //loop{
-            let mut tx = tx.borrow_mut();
-            if !tx.is_none(){
-                tx.as_mut().unwrap().send(message).unwrap();
-        //        break;
-            }
-        //}
+        let mut tx = tx.borrow_mut();
+        if !tx.is_none(){
+            tx.as_mut().unwrap().send(message).unwrap();
+        }
     });
 }
 
@@ -280,7 +282,8 @@ impl Cx {
         if let Ok(xcomponent) = exports.get_named_property::<JsObject>("__NATIVE_XCOMPONENT_OBJ__")
         {
             let (from_ohos_tx, from_ohos_rx) = mpsc::channel();
-            OHOS_MSG_TX.with(move |message_tx| *message_tx.borrow_mut() = Some(from_ohos_tx));
+            ohos_init_globals(from_ohos_tx);
+            //OHOS_MSG_TX.with(move |message_tx| *message_tx.borrow_mut() = Some(from_ohos_tx));
 
             let _ = Cx::register_xcomponent_callbacks(&env, &xcomponent);
 
