@@ -328,6 +328,7 @@ impl Cx {
                 assert!(!surface.is_null());
 
                 crate::log!("eglCreateWindowSurface success");
+                unsafe { (libegl.eglSwapBuffers.unwrap())(egl_display, surface); }
 
                 if unsafe {(libegl.eglMakeCurrent.unwrap())(egl_display,surface,surface,egl_context)}==0{
                     panic!();
@@ -448,7 +449,7 @@ impl Cx {
         self.render_view(pass_id, draw_list_id, &mut zbias, zbias_step);
 
         unsafe {self.os.display.as_mut().unwrap().swap_buffers()};
-        
+
         //unsafe {
         //direct_app.drm.swap_buffers_and_wait(&direct_app.egl);
         //}
@@ -610,10 +611,7 @@ impl CxOhosDisplay {
     }
 
     unsafe fn swap_buffers(&mut self) {
-        (self.libegl.eglSwapBuffers.unwrap())(
-            self.egl_display,
-            self.surface
-        );
+        (self.libegl.eglSwapBuffers.unwrap())(self.egl_display, self.surface);
     }
 
     unsafe fn make_current(&mut self) {
