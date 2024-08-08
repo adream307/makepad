@@ -325,6 +325,7 @@ impl Cx {
                     surface,
                     window
                 });
+
                 Cx::register_vsync_callback();
 
                 cx.main_loop(from_ohos_rx);
@@ -587,13 +588,7 @@ impl CxOhosDisplay {
 
         assert!(!self.surface.is_null());
 
-        let res = (self.libegl.eglMakeCurrent.unwrap())(
-            self.egl_display,
-            self.surface,
-            self.surface,
-            self.egl_context,
-        );
-        assert!(res != 0);
+        self.make_current();
     }
 
     unsafe fn swap_buffers(&mut self) {
@@ -601,6 +596,12 @@ impl CxOhosDisplay {
             self.egl_display,
             self.surface
         );
+    }
+
+    unsafe fn make_current(&mut self) {
+        if (self.libegl.eglMakeCurrent.unwrap())(self.egl_display,self.surface,self.surface,self.egl_context)==0 {
+            panic!();
+        }
     }
 
 }
