@@ -194,6 +194,7 @@ impl Cx {
             match from_ohos_rx.recv() {
                 Ok(FromOhosMessage::VSync(vsyn)) => {
                     self.handle_all_pending_messages(&from_ohos_rx);
+                    self.handle_other_events();
                 }
                 Ok(message) => {
                     self.handle_message(message)
@@ -212,6 +213,39 @@ impl Cx {
         while let Ok(msg) = from_ohos_rx.try_recv() {
             self.handle_message(msg);
         }
+    }
+
+    fn handle_other_events(&mut self) {
+        // Timers
+        // for event in self.os.timers.get_dispatch() {
+        //     self.call_event_handler(&event);
+        // }
+
+        // Signals
+        if SignalToUI::check_and_clear_ui_signal() {
+            self.handle_media_signals();
+            self.call_event_handler(&Event::Signal);
+        }
+
+        // Video updates
+        // let to_dispatch = self.get_video_updates();
+        // for video_id in to_dispatch {
+        //     let e = Event::VideoTextureUpdated(
+        //         VideoTextureUpdatedEvent {
+        //             video_id,
+        //         }
+        //     );
+        //     self.call_event_handler(&e);
+        // }
+
+        // Live edits
+        if self.handle_live_edit() {
+            self.call_event_handler(&Event::LiveEdit);
+            self.redraw_all();
+        }
+
+        // Platform operations
+        self.handle_platform_ops();
     }
 
     fn handle_message(&mut self, msg: FromOhosMessage){
@@ -345,51 +379,6 @@ impl Cx {
         }
     }
 
-    // pub fn event_loop(cx: Rc<RefCell<Cx>>) {
-    //     let mut cx = cx.borrow_mut();
-
-    //     //cx.os_type = OsType::OpenHarmony(OpenHarmonyParams {});
-    //     cx.gpu_info.performance = GpuPerformance::Tier1;
-
-    //     cx.call_event_handler(&Event::Startup);
-    //     cx.redraw_all();
-
-    //     let mut app = OpenHarmonyApp::new();
-    //     app.timers.start_timer(0, 0.008, true);
-    //     // lets run the kms eventloop
-    //     let mut event_flow = EventFlow::Poll;
-    //     let mut timer_ids = Vec::new();
-
-    //     while event_flow != EventFlow::Exit {
-    //         if event_flow == EventFlow::Wait {
-    //             //    kms_app.timers.select(signal_fds[0]);
-    //         }
-    //         app.timers.update_timers(&mut timer_ids);
-    //         let time = app.timers.time_now();
-    //         for timer_id in &timer_ids {
-    //             cx.oh_event_callback(
-    //                 &mut app,
-    //                 OpenHarmonyEvent::Timer(TimerEvent {
-    //                     timer_id: *timer_id,
-    //                     time: Some(time),
-    //                 }),
-    //             );
-    //         }
-    //         /*let input_events = direct_app.raw_input.poll_raw_input(
-    //             direct_app.timers.time_now(),
-    //             CxWindowPool::id_zero()
-    //         );
-    //         for event in input_events {
-    //             cx.direct_event_callback(
-    //                 &mut direct_app,
-    //                 event
-    //             );
-    //         }*/
-
-    //         event_flow = cx.oh_event_callback(&mut app, OpenHarmonyEvent::Paint);
-    //     }
-    // }
-
     fn draw_paint(&mut self) {
         self.handle_platform_ops();
         self.call_draw_event();
@@ -399,76 +388,6 @@ impl Cx {
         //unsafe {(self.os.display.as_mut().unwrap().libegl.eglSwapBuffers.unwrap())(self.os.display.as_mut().unwrap().egl_display, self.os.display.as_mut().unwrap().surface)};
     }
 
-    // fn oh_event_callback(
-    //     &mut self,
-    //     app: &mut OpenHarmonyApp,
-    //     event: OpenHarmonyEvent,
-    // ) -> EventFlow {
-    //     if let EventFlow::Exit = self.handle_platform_ops(app) {
-    //         return EventFlow::Exit;
-    //     }
-
-    //     //self.process_desktop_pre_event(&mut event);
-    //     match event {
-    //         OpenHarmonyEvent::Paint => {
-    //             //let p = profile_start();
-    //             if self.new_next_frames.len() != 0 {
-    //                 self.call_next_frame_event(app.timers.time_now());
-    //             }
-    //             if self.need_redrawing() {
-    //                 self.call_draw_event();
-    //                 //direct_app.egl.make_current();
-    //                 self.opengl_compile_shaders();
-    //             }
-    //             // ok here we send out to all our childprocesses
-    //             //profile_end("paint event handling", p);
-    //             //let p = profile_start();
-    //             self.handle_repaint(app);
-    //             //profile_end("paint openGL", p);
-    //         }
-    //         OpenHarmonyEvent::MouseDown(e) => {
-    //             self.fingers.process_tap_count(e.abs, e.time);
-    //             self.fingers.mouse_down(e.button, CxWindowPool::id_zero());
-    //             self.call_event_handler(&Event::MouseDown(e.into()))
-    //         }
-    //         OpenHarmonyEvent::MouseMove(e) => {
-    //             self.call_event_handler(&Event::MouseMove(e.into()));
-    //             self.fingers.cycle_hover_area(live_id!(mouse).into());
-    //             self.fingers.switch_captures();
-    //         }
-    //         OpenHarmonyEvent::MouseUp(e) => {
-    //             let button = e.button;
-    //             self.call_event_handler(&Event::MouseUp(e.into()));
-    //             self.fingers.mouse_up(button);
-    //             self.fingers.cycle_hover_area(live_id!(mouse).into());
-    //         }
-    //         OpenHarmonyEvent::Scroll(e) => self.call_event_handler(&Event::Scroll(e.into())),
-    //         OpenHarmonyEvent::KeyDown(e) => {
-    //             self.keyboard.process_key_down(e.clone());
-    //             self.call_event_handler(&Event::KeyDown(e))
-    //         }
-    //         OpenHarmonyEvent::KeyUp(e) => {
-    //             self.keyboard.process_key_up(e.clone());
-    //             self.call_event_handler(&Event::KeyUp(e))
-    //         }
-    //         OpenHarmonyEvent::TextInput(e) => self.call_event_handler(&Event::TextInput(e)),
-    //         OpenHarmonyEvent::Timer(e) => {
-    //             if e.timer_id == 0 {
-    //                 if SignalToUI::check_and_clear_ui_signal() {
-    //                     self.handle_media_signals();
-    //                     self.call_event_handler(&Event::Signal);
-    //                 }
-    //             } else {
-    //                 self.call_event_handler(&Event::Timer(e))
-    //             }
-    //         }
-    //     }
-    //     if self.any_passes_dirty() || self.need_redrawing() || self.new_next_frames.len() != 0 {
-    //         EventFlow::Poll
-    //     } else {
-    //         EventFlow::Wait
-    //     }
-    // }
 
     pub fn draw_pass_to_fullscreen(&mut self, pass_id: PassId) {
         let draw_list_id = self.passes[pass_id].main_draw_list_id.unwrap();
