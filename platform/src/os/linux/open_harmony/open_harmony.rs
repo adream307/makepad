@@ -447,10 +447,8 @@ impl Cx {
 
         self.render_view(pass_id, draw_list_id, &mut zbias, zbias_step);
 
-        unsafe {
-            self.os.display.unwrap().swap_buffers();
-        }
-
+        unsafe {self.os.display.as_mut().unwrap().swap_buffers()};
+        
         //unsafe {
         //direct_app.drm.swap_buffers_and_wait(&direct_app.egl);
         //}
