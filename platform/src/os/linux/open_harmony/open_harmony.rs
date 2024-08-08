@@ -123,7 +123,7 @@ pub extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, wi
         & mut width,
         & mut height)};
 
-    crate::log!("============== OnSurfaceCreateCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",ret,width,height);
+    crate::log!("OnSurfaceCreateCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",ret,width,height);
     send_from_ohos_message(FromOhosMessage::SurfaceCreated { window, width: width as i32, height:height as i32 });
 }
 
@@ -138,23 +138,17 @@ pub extern "C" fn on_surface_changed_cb(xcomponent: *mut OH_NativeXComponent, wi
         & mut width,
         & mut height)};
 
-    crate::log!("================= OnSurfaceChangeCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",ret,width,height);
+    crate::log!("OnSurfaceChangeCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",ret,width,height);
     send_from_ohos_message(FromOhosMessage::SurfaceChanged { window, width: width as i32, height:height as i32 });
 }
 
 #[no_mangle]
-pub extern "C" fn on_surface_destroyed_cb(
-    component: *mut OH_NativeXComponent,
-    window: *mut c_void,
-) {
+pub extern "C" fn on_surface_destroyed_cb(component: *mut OH_NativeXComponent, window: *mut c_void) {
     crate::log!("OnSurcefaceDestroyCallBack");
 }
 
 #[no_mangle]
-pub extern "C" fn on_dispatch_touch_event_cb(
-    component: *mut OH_NativeXComponent,
-    window: *mut c_void,
-) {
+pub extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent, window: *mut c_void) {
     crate::log!("OnDispatchTouchEventCallBack");
 }
 
@@ -164,7 +158,7 @@ pub extern "C" fn on_vsync_cb(timestamp: ::core::ffi::c_longlong, data: *mut c_v
         let vsync = data as *mut OH_NativeVSync;
         OH_NativeVSync_RequestFrame(vsync, on_vsync_cb, data)
     };
-    send_from_ohos_message(FromOhosMessage::VSync(data as *mut OH_NativeVSync));
+    //send_from_ohos_message(FromOhosMessage::VSync(data as *mut OH_NativeVSync));
     //crate::log!("OnVSyncCallBack, timestamp = {}, register call back = {}",timestamp,res);
 }
 
@@ -186,7 +180,7 @@ impl Cx {
         self.call_event_handler(&Event::Startup);
         self.redraw_all();
 
-        // self.draw_paint();
+        self.draw_paint();
 
         while !self.os.quit {
             match from_ohos_rx.recv() {
