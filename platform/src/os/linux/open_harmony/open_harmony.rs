@@ -188,13 +188,14 @@ impl Cx {
         self.call_event_handler(&Event::Startup);
         self.redraw_all();
 
-        self.draw_paint();
+        //self.draw_paint();
 
         while !self.os.quit {
             match from_ohos_rx.recv() {
                 Ok(FromOhosMessage::VSync(vsyn)) => {
                     self.handle_all_pending_messages(&from_ohos_rx);
                     self.handle_other_events();
+                    self.handle_drawing();
                 }
                 Ok(message) => {
                     self.handle_message(message)
@@ -246,6 +247,21 @@ impl Cx {
 
         // Platform operations
         self.handle_platform_ops();
+    }
+
+    fn handle_drawing(&mut self) {
+        if self.new_next_frames.len() != 0 {
+            self.call_next_frame_event(self.os.timers.time_now());
+        }
+        if self.need_redrawing() {
+            self.call_draw_event();
+            //direct_app.egl.make_current();
+            self.opengl_compile_shaders();
+        }
+        // ok here we send out to all our childprocesses
+        //profile_end("paint event handling", p);
+        //let p = profile_start();
+        self.handle_repaint();
     }
 
     fn handle_message(&mut self, msg: FromOhosMessage){
@@ -430,6 +446,10 @@ impl Cx {
         let zbias_step = self.passes[pass_id].zbias_step;
 
         self.render_view(pass_id, draw_list_id, &mut zbias, zbias_step);
+
+        unsafe {
+            self.os.display.unwrap().swap_buffers();
+        }
 
         //unsafe {
         //direct_app.drm.swap_buffers_and_wait(&direct_app.egl);
