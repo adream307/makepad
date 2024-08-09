@@ -88,7 +88,7 @@ pub enum FromOhosMessage {
         width: i32,
         height: i32,
     },
-    VSync (*mut OH_NativeVSync)
+    VSync
 }
 
 #[napi(object)]
@@ -101,21 +101,20 @@ pub struct OpenHarmonyInitOptions {
 
 unsafe impl Send for FromOhosMessage {}
 
-thread_local! {
-    static OHOS_MSG_TX: RefCell<Option<mpsc::Sender<FromOhosMessage>>> = RefCell::new(None);
+pub struct VSyncParams {
+    pub vsync: *mut OH_NativeVSync,
+    pub tx:mpsc::Sender<FromOhosMessage>
 }
 
-fn ohos_init_globals(from_ohos_tx: mpsc::Sender<FromOhosMessage>)
-{
-    OHOS_MSG_TX.with(move |messages_tx| *messages_tx.borrow_mut() = Some(from_ohos_tx));
+
+thread_local! {
+    static OHOS_MSG_TX: RefCell<Option<mpsc::Sender<FromOhosMessage>>> = RefCell::new(None);
 }
 
 fn send_from_ohos_message(message: FromOhosMessage) {
     OHOS_MSG_TX.with(|tx| {
         let mut tx = tx.borrow_mut();
-        if !tx.is_none(){
-            tx.as_mut().unwrap().send(message).unwrap();
-        }
+        tx.as_mut().unwrap().send(message).unwrap();
     });
 }
 
@@ -161,11 +160,10 @@ pub extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent
 
 #[no_mangle]
 pub extern "C" fn on_vsync_cb(timestamp: ::core::ffi::c_longlong, data: *mut c_void) {
-    send_from_ohos_message(FromOhosMessage::VSync(data as *mut OH_NativeVSync));
-    let res = unsafe {
-        let vsync = data as *mut OH_NativeVSync;
-        OH_NativeVSync_RequestFrame(vsync, on_vsync_cb, data)
-    };
+    let param = unsafe { Box::from_raw(data as *mut VSyncParams) };
+    param.tx.send(FromOhosMessage::VSync);
+
+    let res = unsafe {OH_NativeVSync_RequestFrame(param.vsync, on_vsync_cb, Box::into_raw(param) as *mut c_void)};
     if res !=0 {
         crate::error!("Failed to register vsync callbacks");
     }
@@ -194,7 +192,7 @@ impl Cx {
 
         while !self.os.quit {
             match from_ohos_rx.recv() {
-                Ok(FromOhosMessage::VSync(vsyn)) => {
+                Ok(FromOhosMessage::VSync) => {
                     self.handle_all_pending_messages(&from_ohos_rx);
                     self.handle_other_events();
                     self.handle_drawing();
@@ -282,10 +280,12 @@ impl Cx {
         if let Ok(xcomponent) = exports.get_named_property::<JsObject>("__NATIVE_XCOMPONENT_OBJ__")
         {
             let (from_ohos_tx, from_ohos_rx) = mpsc::channel();
-            ohos_init_globals(from_ohos_tx);
-            //OHOS_MSG_TX.with(move |message_tx| *message_tx.borrow_mut() = Some(from_ohos_tx));
+            let ohos_tx = from_ohos_tx.clone();
+            OHOS_MSG_TX.with(move |messages_tx| *messages_tx.borrow_mut() = Some(ohos_tx));
 
             let _ = Cx::register_xcomponent_callbacks(&env, &xcomponent);
+            Cx::register_vsync_callback(from_ohos_tx);
+
 
             std::thread::spawn(move || {
                 let mut cx = startup();
@@ -346,8 +346,6 @@ impl Cx {
                     window
                 });
 
-                Cx::register_vsync_callback();
-
                 cx.main_loop(from_ohos_rx);
                 //TODO, destroy surface
             });
@@ -389,10 +387,12 @@ impl Cx {
         Ok(())
     }
 
-    fn register_vsync_callback() {
+    fn register_vsync_callback(from_ohos_tx:mpsc::Sender<FromOhosMessage>) {
         //vsync call back
         let vsync = unsafe { OH_NativeVSync_Create(c"makepad".as_ptr(), 7)};
-        let res = unsafe {OH_NativeVSync_RequestFrame(vsync, on_vsync_cb, vsync as * mut c_void)};
+        let param = VSyncParams{vsync:vsync,tx: from_ohos_tx};
+        let data = Box::new(param);
+        let res = unsafe {OH_NativeVSync_RequestFrame(vsync, on_vsync_cb, Box::into_raw(data) as * mut c_void)};
         if res != 0 {
             crate::error!("Failed to register vsync callbacks");
         } else {
