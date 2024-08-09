@@ -89,7 +89,8 @@ pub enum FromOhosMessage {
         width: i32,
         height: i32,
     },
-    VSync
+    VSync,
+    Touch
 }
 
 #[napi(object)]
@@ -164,6 +165,8 @@ pub extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent
         return;
     }
     let touch_event = unsafe { touch_event.assume_init() };
+
+    send_from_ohos_message(FromOhosMessage::Touch);
 
     match touch_event.type_ {
         OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_DOWN => {
