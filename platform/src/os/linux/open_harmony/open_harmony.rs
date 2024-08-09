@@ -24,6 +24,7 @@ use {
 
 //----------------------
 
+use std::mem::MaybeUninit;
 use self::super::super::egl_sys::{self, LibEgl};
 use napi_derive_ohos::{module_exports, napi};
 use napi_ohos::bindgen_prelude::Undefined;
@@ -155,7 +156,79 @@ pub extern "C" fn on_surface_destroyed_cb(component: *mut OH_NativeXComponent, w
 
 #[no_mangle]
 pub extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent, window: *mut c_void) {
-    crate::log!("OnDispatchTouchEventCallBack");
+    let mut touch_event: MaybeUninit<OH_NativeXComponent_TouchEvent> = MaybeUninit::uninit();
+    let res =
+        unsafe { OH_NativeXComponent_GetTouchEvent(component, window, touch_event.as_mut_ptr()) };
+    if res != 0 {
+        crate::error!("OH_NativeXComponent_GetTouchEvent failed with {res}");
+        return;
+    }
+    let touch_event = unsafe { touch_event.assume_init() };
+
+    match touch_event.type_ {
+        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_DOWN => {
+            crate::log!("TouchEvent::Down");
+            // if touch_event.id == 0 {
+            //     unsafe {
+            //         let old = TS_THREAD_STATE.velocity_tracker.replace(TouchTracker::new(
+            //             Point2D::new(touch_event.x, touch_event.y),
+            //         ));
+            //         assert!(old.is_none());
+            //     }
+            // }
+            //TouchEventType::Down
+        },
+        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_UP => {
+            crate::log!("TouchEvent::UP");
+            // if touch_event.id == 0 {
+            //     unsafe {
+            //         let old = TS_THREAD_STATE.velocity_tracker.take();
+            //         assert!(old.is_some());
+            //     }
+            // }
+            //TouchEventType::Up
+        },
+        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_MOVE => {
+            crate::log!("TouchEvent::Move");
+            // SAFETY: We only access TS_THREAD_STATE from the main TS thread.
+            // if touch_event.id == 0 {
+            //     let (lastX, lastY) = unsafe {
+            //         if let Some(last_event) = &mut TS_THREAD_STATE.velocity_tracker {
+            //             let touch_point = last_event.last_position;
+            //             last_event.last_position = Point2D::new(touch_event.x, touch_event.y);
+            //             (touch_point.x, touch_point.y)
+            //         } else {
+            //             error!("Move Event received, but no previous touch event was stored!");
+            //             // todo: handle this error case
+            //             panic!("Move Event received, but no previous touch event was stored!");
+            //         }
+            //     };
+            //     let dx = touch_event.x - lastX;
+            //     let dy = touch_event.y - lastY;
+            //     //TouchEventType::Scroll { dx, dy }
+            // } else {
+            //     //TouchEventType::Move
+            // }
+        },
+        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_CANCEL => {
+            crate::log!("TouchEvent::Cancle");
+            // if touch_event.id == 0 {
+            //     unsafe {
+            //         let old = TS_THREAD_STATE.velocity_tracker.take();
+            //         assert!(old.is_some());
+            //     }
+            // }
+            //TouchEventType::Cancel
+        },
+        _ => {
+            crate::error!(
+                "Failed to dispatch call for touch Event {:?}",
+                touch_event.type_
+            );
+            //TouchEventType::Unknown
+        }
+    };
+    //crate::log!("OnDispatchTouchEventCallBack");
 }
 
 #[no_mangle]
