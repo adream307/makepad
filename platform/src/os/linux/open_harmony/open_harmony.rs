@@ -227,8 +227,6 @@ impl Cx {
         self.call_event_handler(&Event::Startup);
         self.redraw_all();
 
-        //self.draw_paint();
-
         while !self.os.quit {
             match from_ohos_rx.recv() {
                 Ok(FromOhosMessage::VSync) => {
@@ -459,16 +457,6 @@ impl Cx {
             crate::log!("Registerd callbacks vsync successfully");
         }
     }
-
-    fn draw_paint(&mut self) {
-        self.handle_platform_ops();
-        self.call_draw_event();
-        self.opengl_compile_shaders();
-        self.handle_repaint();
-        unsafe {self.os.display.as_mut().unwrap().swap_buffers()};
-        //unsafe {(self.os.display.as_mut().unwrap().libegl.eglSwapBuffers.unwrap())(self.os.display.as_mut().unwrap().egl_display, self.os.display.as_mut().unwrap().surface)};
-    }
-
 
     pub fn draw_pass_to_fullscreen(&mut self, pass_id: PassId) {
         let draw_list_id = self.passes[pass_id].main_draw_list_id.unwrap();
