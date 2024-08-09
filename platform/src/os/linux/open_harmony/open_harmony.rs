@@ -4,9 +4,10 @@ use {
     self::super::super::{gl_sys, select_timer::SelectTimers},
     self::super::{oh_event::*, oh_media::CxOpenHarmonyMedia},
     crate::{
+        area::Area,
         cx::{Cx, OpenHarmonyParams, OsType},
         cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
-        event::{Event, TimerEvent, WindowGeom},
+        event::{Event, TimerEvent, WindowGeom, TouchPoint, TouchState, TouchUpdateEvent},
         gpu_info::GpuPerformance,
         makepad_live_id::*,
         makepad_math::*,
@@ -18,6 +19,7 @@ use {
         window::CxWindowPool,
     },
     std::cell::RefCell,
+    std::cell::Cell,
     std::rc::Rc,
     std::time::Instant,
 };
@@ -90,7 +92,7 @@ pub enum FromOhosMessage {
         height: i32,
     },
     VSync,
-    Touch
+    Touch(TouchPoint)
 }
 
 #[napi(object)]
@@ -166,71 +168,33 @@ pub extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent
     }
     let touch_event = unsafe { touch_event.assume_init() };
 
-    send_from_ohos_message(FromOhosMessage::Touch);
 
-    match touch_event.type_ {
-        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_DOWN => {
-            crate::log!("TouchEvent::Down");
-            // if touch_event.id == 0 {
-            //     unsafe {
-            //         let old = TS_THREAD_STATE.velocity_tracker.replace(TouchTracker::new(
-            //             Point2D::new(touch_event.x, touch_event.y),
-            //         ));
-            //         assert!(old.is_none());
-            //     }
-            // }
-            //TouchEventType::Down
-        },
-        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_UP => {
-            crate::log!("TouchEvent::UP");
-            // if touch_event.id == 0 {
-            //     unsafe {
-            //         let old = TS_THREAD_STATE.velocity_tracker.take();
-            //         assert!(old.is_some());
-            //     }
-            // }
-            //TouchEventType::Up
-        },
-        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_MOVE => {
-            crate::log!("TouchEvent::Move");
-            // SAFETY: We only access TS_THREAD_STATE from the main TS thread.
-            // if touch_event.id == 0 {
-            //     let (lastX, lastY) = unsafe {
-            //         if let Some(last_event) = &mut TS_THREAD_STATE.velocity_tracker {
-            //             let touch_point = last_event.last_position;
-            //             last_event.last_position = Point2D::new(touch_event.x, touch_event.y);
-            //             (touch_point.x, touch_point.y)
-            //         } else {
-            //             error!("Move Event received, but no previous touch event was stored!");
-            //             // todo: handle this error case
-            //             panic!("Move Event received, but no previous touch event was stored!");
-            //         }
-            //     };
-            //     let dx = touch_event.x - lastX;
-            //     let dy = touch_event.y - lastY;
-            //     //TouchEventType::Scroll { dx, dy }
-            // } else {
-            //     //TouchEventType::Move
-            // }
-        },
-        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_CANCEL => {
-            crate::log!("TouchEvent::Cancle");
-            // if touch_event.id == 0 {
-            //     unsafe {
-            //         let old = TS_THREAD_STATE.velocity_tracker.take();
-            //         assert!(old.is_some());
-            //     }
-            // }
-            //TouchEventType::Cancel
-        },
+
+    let touch_state = match touch_event.type_ {
+        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_DOWN => {TouchState::Start},
+        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_UP => {TouchState::Stop},
+        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_MOVE => {TouchState::Move},
+        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_CANCEL => {TouchState::Move},
         _ => {
             crate::error!(
                 "Failed to dispatch call for touch Event {:?}",
                 touch_event.type_
             );
-            //TouchEventType::Unknown
+            TouchState::Move
         }
     };
+    let point = TouchPoint{
+        state:touch_state,
+        abs: dvec2(touch_event.x as f64 / 3.25, touch_event.y as f64 / 3.25), //TODO DIP
+        time: touch_event.timeStamp as f64 / 1000.0,
+        uid:touch_event.id as u64,
+        rotation_angle: 0.0,
+        force:touch_event.force as f64,
+        radius:dvec2(1.0, 1.0),
+        handled:Cell::new(Area::Empty),
+        sweep_lock:Cell::new(Area::Empty),
+    };
+    send_from_ohos_message(FromOhosMessage::Touch(point));
     //crate::log!("OnDispatchTouchEventCallBack");
 }
 
@@ -340,7 +304,28 @@ impl Cx {
     }
 
     fn handle_message(&mut self, msg: FromOhosMessage){
-
+        match msg {
+            FromOhosMessage::Touch(point) =>{
+                let time = point.time;
+                let window = &mut self.windows[CxWindowPool::id_zero()];
+                let dpi_factor = window.dpi_override.unwrap_or(self.os.dpi_factor);
+                //point.abs /= dpi_factor;
+                let touches = vec![point];
+                self.fingers.process_touch_update_start(time, &touches);
+                let e = Event::TouchUpdate(
+                    TouchUpdateEvent {
+                        time,
+                        window_id: CxWindowPool::id_zero(),
+                        touches,
+                        modifiers: Default::default()
+                    }
+                );
+                self.call_event_handler(&e);
+                let e = if let Event::TouchUpdate(e) = e {e}else {panic!()};
+                self.fingers.process_touch_update_end(&e.touches);
+            }
+            _ =>{}
+        }
     }
 
     pub fn ohos_init<F>(exports: JsObject, env: Env, startup: F)
