@@ -2,7 +2,7 @@ use crate::{egl_sys::{create_egl_context, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPA
 
 use {
     self::super::super::{gl_sys, select_timer::SelectTimers},
-    self::super::{oh_media::CxOpenHarmonyMedia},
+    self::super::{oh_sys::*, oh_callbacks::*,  oh_media::CxOpenHarmonyMedia},
     crate::{
         area::Area,
         cx::{Cx, OpenHarmonyParams, OsType},
@@ -43,171 +43,7 @@ use std::{ffi::CString, os::raw::c_void, ptr::null_mut};
 use std::ptr::null;
 use std::sync::mpsc;
 
-// Todo: in the future these libraries should be added by Rust sys-crates
-#[link(name = "ace_napi.z")]
-#[link(name = "ace_ndk.z")]
-#[link(name = "hilog_ndk.z")]
-#[link(name = "native_window")]
-extern "C" {}
 
-#[repr(C)]
-pub struct OH_NativeVSync {
-    _unused: [u8; 0],
-}
-
-#[link(name = "native_vsync")]
-extern "C" {
-    pub fn OH_NativeVSync_Create(name:* const::core::ffi::c_char, length: ::core::ffi::c_uint) -> * mut OH_NativeVSync;
-    pub fn OH_NativeVSync_Destroy(nativeVsync: *mut OH_NativeVSync) -> ::core::ffi::c_void;
-    pub fn OH_NativeVSync_RequestFrame(
-        nativeVsync: *mut OH_NativeVSync,
-        callback : extern "C" fn (timestamp: ::core::ffi::c_longlong, data: *mut ::core::ffi::c_void),
-        data: *mut ::core::ffi::c_void) -> ::core::ffi::c_int;
-    pub fn OH_NativeVSync_GetPeriod (
-        nativeVsync:  *mut OH_NativeVSync,
-        period: * mut ::core::ffi::c_longlong) -> ::core::ffi::c_int;
-}
-
-// pub fn OH_NativeXComponent_RegisterFocusEventCallback(
-//     component: *mut OH_NativeXComponent,
-//     callback: ::core::option::Option<
-//         unsafe extern "C" fn(
-//             component: *mut OH_NativeXComponent,
-//             window: *mut ::core::ffi::c_void,
-//         ),
-//     >,
-// ) -> i32;
-
-#[derive(Debug)]
-pub enum FromOhosMessage {
-    Init(OpenHarmonyInitOptions),
-    SurfaceChanged {
-        window: *mut c_void,
-        width: i32,
-        height: i32,
-    },
-    SurfaceCreated {
-        window: *mut c_void,
-        width: i32,
-        height: i32,
-    },
-    VSync,
-    Touch(TouchPoint)
-}
-
-#[napi(object)]
-#[derive(Clone, Debug)]
-pub struct OpenHarmonyInitOptions {
-    pub device_type: String,
-    pub os_full_name: String,
-    pub display_density: f64,
-}
-
-unsafe impl Send for FromOhosMessage {}
-
-pub struct VSyncParams {
-    pub vsync: *mut OH_NativeVSync,
-    pub tx:mpsc::Sender<FromOhosMessage>
-}
-
-
-thread_local! {
-    static OHOS_MSG_TX: RefCell<Option<mpsc::Sender<FromOhosMessage>>> = RefCell::new(None);
-}
-
-fn send_from_ohos_message(message: FromOhosMessage) {
-    OHOS_MSG_TX.with(|tx| {
-        let mut tx = tx.borrow_mut();
-        tx.as_mut().unwrap().send(message).unwrap();
-    });
-}
-
-#[no_mangle]
-pub extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, window: *mut c_void) {
-    let mut width :u64 = 0;
-    let mut height :u64 = 0;
-
-    let ret = unsafe {OH_NativeXComponent_GetXComponentSize(
-        xcomponent,
-        window,
-        & mut width,
-        & mut height)};
-
-    crate::log!("OnSurfaceCreateCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",ret,width,height);
-    send_from_ohos_message(FromOhosMessage::SurfaceCreated { window, width: width as i32, height:height as i32 });
-}
-
-#[no_mangle]
-pub extern "C" fn on_surface_changed_cb(xcomponent: *mut OH_NativeXComponent, window: *mut c_void) {
-    let mut width :u64 = 0;
-    let mut height :u64 = 0;
-
-    let ret = unsafe {OH_NativeXComponent_GetXComponentSize(
-        xcomponent,
-        window,
-        & mut width,
-        & mut height)};
-
-    crate::log!("OnSurfaceChangeCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",ret,width,height);
-    send_from_ohos_message(FromOhosMessage::SurfaceChanged { window, width: width as i32, height:height as i32 });
-}
-
-#[no_mangle]
-pub extern "C" fn on_surface_destroyed_cb(component: *mut OH_NativeXComponent, window: *mut c_void) {
-    crate::log!("OnSurcefaceDestroyCallBack");
-}
-
-#[no_mangle]
-pub extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent, window: *mut c_void) {
-    let mut touch_event: MaybeUninit<OH_NativeXComponent_TouchEvent> = MaybeUninit::uninit();
-    let res =
-        unsafe { OH_NativeXComponent_GetTouchEvent(component, window, touch_event.as_mut_ptr()) };
-    if res != 0 {
-        crate::error!("OH_NativeXComponent_GetTouchEvent failed with {res}");
-        return;
-    }
-    let touch_event = unsafe { touch_event.assume_init() };
-
-
-
-    let touch_state = match touch_event.type_ {
-        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_DOWN => {TouchState::Start},
-        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_UP => {TouchState::Stop},
-        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_MOVE => {TouchState::Move},
-        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_CANCEL => {TouchState::Move},
-        _ => {
-            crate::error!(
-                "Failed to dispatch call for touch Event {:?}",
-                touch_event.type_
-            );
-            TouchState::Move
-        }
-    };
-    let point = TouchPoint{
-        state:touch_state,
-        abs: dvec2(touch_event.x as f64 / 3.25, touch_event.y as f64 / 3.25), //TODO DIP
-        time: touch_event.timeStamp as f64 / 1000.0,
-        uid:touch_event.id as u64,
-        rotation_angle: 0.0,
-        force:touch_event.force as f64,
-        radius:dvec2(1.0, 1.0),
-        handled:Cell::new(Area::Empty),
-        sweep_lock:Cell::new(Area::Empty),
-    };
-    send_from_ohos_message(FromOhosMessage::Touch(point));
-    //crate::log!("OnDispatchTouchEventCallBack");
-}
-
-#[no_mangle]
-pub extern "C" fn on_vsync_cb(timestamp: ::core::ffi::c_longlong, data: *mut c_void) {
-
-    unsafe {let _ = (*(data as * mut VSyncParams)).tx.send(FromOhosMessage::VSync);}
-    let res = unsafe {OH_NativeVSync_RequestFrame((*(data as * mut VSyncParams)).vsync, on_vsync_cb, data)};
-    if res !=0 {
-        crate::error!("Failed to register vsync callbacks");
-    }
-    //crate::log!("OnVSyncCallBack, timestamp = {}, register call back = {}",timestamp,res);
-}
 
 #[napi]
 pub fn init_makepad(init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()>{
@@ -339,10 +175,10 @@ impl Cx {
         {
             let (from_ohos_tx, from_ohos_rx) = mpsc::channel();
             let ohos_tx = from_ohos_tx.clone();
-            OHOS_MSG_TX.with(move |messages_tx| *messages_tx.borrow_mut() = Some(ohos_tx));
+            init_globals(ohos_tx);
 
-            let _ = Cx::register_xcomponent_callbacks(&env, &xcomponent);
-            Cx::register_vsync_callback(from_ohos_tx);
+            register_xcomponent_callbacks(&env, &xcomponent);
+            register_vsync_callback(from_ohos_tx);
 
 
             std::thread::spawn(move || {
@@ -414,49 +250,7 @@ impl Cx {
         }
     }
 
-    fn register_xcomponent_callbacks(env: &Env, xcomponent: &JsObject) -> napi_ohos::Result<()> {
-        crate::log!("reginter xcomponent callbacks");
-        let raw = unsafe { xcomponent.raw() };
-        let raw_env = env.raw();
-        let mut native_xcomponent: *mut OH_NativeXComponent = core::ptr::null_mut();
-        unsafe {
-            let res = napi_ohos::sys::napi_unwrap(
-                raw_env,
-                raw,
-                &mut native_xcomponent as *mut *mut OH_NativeXComponent as *mut *mut c_void,
-            );
-            assert!(res == 0);
-        }
-        crate::log!("Got native_xcomponent!");
-        let cbs = Box::new(OH_NativeXComponent_Callback {
-            OnSurfaceCreated: Some(on_surface_created_cb),
-            OnSurfaceChanged: Some(on_surface_changed_cb),
-            OnSurfaceDestroyed: Some(on_surface_destroyed_cb),
-            DispatchTouchEvent: Some(on_dispatch_touch_event_cb),
-        });
-        let res = unsafe {
-            OH_NativeXComponent_RegisterCallback(native_xcomponent, Box::leak(cbs) as *mut _)
-        };
-        if res != 0 {
-            crate::error!("Failed to register callbacks");
-        } else {
-            crate::log!("Registerd callbacks successfully");
-        }
-        Ok(())
-    }
 
-    fn register_vsync_callback(from_ohos_tx:mpsc::Sender<FromOhosMessage>) {
-        //vsync call back
-        let vsync = unsafe { OH_NativeVSync_Create(c"makepad".as_ptr(), 7)};
-        let param = VSyncParams{vsync:vsync,tx: from_ohos_tx};
-        let data = Box::new(param);
-        let res = unsafe {OH_NativeVSync_RequestFrame(vsync, on_vsync_cb, Box::into_raw(data) as * mut c_void)};
-        if res != 0 {
-            crate::error!("Failed to register vsync callbacks");
-        } else {
-            crate::log!("Registerd callbacks vsync successfully");
-        }
-    }
 
     pub fn draw_pass_to_fullscreen(&mut self, pass_id: PassId) {
         let draw_list_id = self.passes[pass_id].main_draw_list_id.unwrap();
