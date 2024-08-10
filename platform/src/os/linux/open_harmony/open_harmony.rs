@@ -139,7 +139,7 @@ impl Cx {
         }
     }
 
-    fn handle_surface_create(
+    fn handle_surface_created(
         &mut self,
         from_ohos_rx: &mpsc::Receiver<FromOhosMessage>,
     ) -> *mut c_void {
@@ -165,6 +165,7 @@ impl Cx {
                         }
                     }
                     self.os.display_size = dvec2(width as f64, height as f64);
+                    crate::log!("handle surface created, width={}, height={}, display_density={}",width,height,self.os.dpi_factor);
                     return window;
                 }
                 _ => {}
@@ -193,7 +194,7 @@ impl Cx {
             std::thread::spawn(move || {
                 let mut cx = startup();
                 let mut libegl = LibEgl::try_load().expect("can't load LibEGL");
-                let window = cx.handle_surface_create(&from_ohos_rx);
+                let window = cx.handle_surface_created(&from_ohos_rx);
 
                 let (egl_context, egl_config, egl_display) = unsafe {
                     egl_sys::create_egl_context(&mut libegl).expect("Can't create EGL context")
