@@ -72,7 +72,7 @@ extern "C" fn on_surface_changed_cb(xcomponent: *mut OH_NativeXComponent, window
 }
 
 #[no_mangle]
-extern "C" fn on_surface_destroyed_cb(component: *mut OH_NativeXComponent, window: *mut c_void) {
+extern "C" fn on_surface_destroyed_cb(_component: *mut OH_NativeXComponent, _window: *mut c_void) {
     crate::log!("OnSurcefaceDestroyCallBack");
 }
 

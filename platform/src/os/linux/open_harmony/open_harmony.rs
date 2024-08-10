@@ -20,7 +20,7 @@ use {
 use crate::egl_sys::{self, LibEgl,EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE};
 use napi_derive_ohos::napi;
 use napi_ohos::{Env, JsObject};
-use std::{ffi::CString, os::raw::c_void, ptr::null_mut};
+use std::{ffi::CString, os::raw::c_void};
 use std::ptr::null;
 use std::sync::mpsc;
 
