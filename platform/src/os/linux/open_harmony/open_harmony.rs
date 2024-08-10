@@ -22,7 +22,7 @@ use {
 
 #[napi]
 pub fn init_makepad(init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()> {
-    crate::log!("call initMakePad from XComponent.onLoad");
+    crate::log!("call initMakePad from XComponent.onLoad, display_density = {}",init_opts.display_density);
     send_from_ohos_message(FromOhosMessage::Init(init_opts));
     Ok(())
 }
