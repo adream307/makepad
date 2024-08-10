@@ -2,6 +2,7 @@ use {
     self::super::super::{gl_sys, select_timer::SelectTimers},
     self::super::{oh_callbacks::*,  oh_media::CxOpenHarmonyMedia},
     crate::{
+        egl_sys::{self, LibEgl,EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE},
         cx::{Cx, OpenHarmonyParams, OsType},
         cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
         event::{Event, WindowGeom, TouchUpdateEvent},
@@ -14,14 +15,10 @@ use {
         thread::SignalToUI,
         window::CxWindowPool,
     },
-    std::time::Instant,
+    std::{ffi::CString, os::raw::c_void,time::Instant,sync::mpsc},
+    napi_derive_ohos::napi,
+    napi_ohos::{Env, JsObject}
 };
-
-use crate::egl_sys::{self, LibEgl,EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE};
-use napi_derive_ohos::napi;
-use napi_ohos::{Env, JsObject};
-use std::{ffi::CString, os::raw::c_void};
-use std::sync::mpsc;
 
 
 
