@@ -3,7 +3,7 @@ use crate::area::Area;
 use crate::event::{TouchPoint, TouchState};
 use crate::makepad_math::*;
 use napi_derive_ohos::napi;
-use napi_ohos::{Env, JsObject, NapiRaw};
+use napi_ohos::{Env, JsObject, JsString, NapiRaw};
 use ohos_sys::xcomponent::{
     OH_NativeXComponent, OH_NativeXComponent_Callback, OH_NativeXComponent_GetTouchEvent,
     OH_NativeXComponent_GetXComponentSize, OH_NativeXComponent_RegisterCallback,
@@ -194,6 +194,20 @@ pub fn register_vsync_callback(from_ohos_tx: mpsc::Sender<FromOhosMessage>) {
     } else {
         crate::log!("Registerd callbacks vsync successfully");
     }
+}
+
+#[allow(unused)]
+fn debug_jsobject(obj: &JsObject, obj_name: &str) -> napi_ohos::Result<()> {
+    let names = obj.get_property_names()?;
+    crate::log!("Getting property names of object {obj_name}");
+    let len = names.get_array_length()?;
+    crate::log!("{obj_name} has {len} elements");
+    for i in 0..len {
+        let name: JsString = names.get_element(i)?;
+        let name = name.into_utf8()?;
+        crate::log!("{obj_name} property {i}: {}", name.as_str()?)
+    }
+    Ok(())
 }
 
 #[derive(Debug)]
