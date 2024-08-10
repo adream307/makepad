@@ -24,8 +24,6 @@ use {
     std::time::Instant,
 };
 
-//----------------------
-
 use std::mem::MaybeUninit;
 use self::super::super::egl_sys::{self, LibEgl};
 use napi_derive_ohos::{module_exports, napi};
@@ -47,7 +45,7 @@ use std::sync::mpsc;
 
 #[napi]
 pub fn init_makepad(init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()>{
-    crate::log!("======================== init makepad ==================");
+    crate::log!("call initMakePad from XComponent.onLoad");
     send_from_ohos_message(FromOhosMessage::Init(init_opts));
     Ok(())
 }
@@ -55,7 +53,7 @@ pub fn init_makepad(init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()>{
 impl Cx {
     fn main_loop(&mut self, from_ohos_rx:mpsc::Receiver<FromOhosMessage>){
 
-        crate::log!("============== main_loop ================");
+        crate::log!("entry main_loop");
 
         self.gpu_info.performance = GpuPerformance::Tier1;
 
@@ -166,7 +164,7 @@ impl Cx {
     where
         F: FnOnce() -> Box<Cx> + Send + 'static,
     {
-        crate::log!("================ ohos init ==================");
+        crate::log!("ohos init");
         std::panic::set_hook(Box::new(|info| {
             crate::log!("custom panic hook: {}", info);
         }));
@@ -243,7 +241,6 @@ impl Cx {
                 cx.main_loop(from_ohos_rx);
                 //TODO, destroy surface
             });
-
 
         } else {
             crate::log!("Failed to get xcomponent in ohos_init");
