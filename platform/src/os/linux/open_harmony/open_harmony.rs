@@ -120,10 +120,11 @@ impl Cx {
     fn handle_message(&mut self, msg: FromOhosMessage){
         match msg {
             FromOhosMessage::Touch(point) =>{
+                let mut point = point;
                 let time = point.time;
                 let window = &mut self.windows[CxWindowPool::id_zero()];
                 let dpi_factor = window.dpi_override.unwrap_or(self.os.dpi_factor);
-                //point.abs /= dpi_factor;
+                point.abs /= dpi_factor;
                 let touches = vec![point];
                 self.fingers.process_touch_update_start(time, &touches);
                 let e = Event::TouchUpdate(
