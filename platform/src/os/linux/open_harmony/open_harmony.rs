@@ -1,11 +1,11 @@
 use {
     self::super::super::{gl_sys, select_timer::SelectTimers},
-    self::super::{oh_callbacks::*,  oh_media::CxOpenHarmonyMedia},
+    self::super::{oh_callbacks::*, oh_media::CxOpenHarmonyMedia},
     crate::{
-        egl_sys::{self, LibEgl,EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE},
         cx::{Cx, OpenHarmonyParams, OsType},
         cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
-        event::{Event, WindowGeom, TouchUpdateEvent},
+        egl_sys::{self, LibEgl, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE},
+        event::{Event, TouchUpdateEvent, WindowGeom},
         gpu_info::GpuPerformance,
         makepad_math::*,
         os::cx_native::EventFlow,
@@ -15,27 +15,23 @@ use {
         thread::SignalToUI,
         window::CxWindowPool,
     },
-    std::{ffi::CString, os::raw::c_void,time::Instant,sync::mpsc},
     napi_derive_ohos::napi,
-    napi_ohos::{Env, JsObject}
+    napi_ohos::{Env, JsObject},
+    std::{ffi::CString, os::raw::c_void, sync::mpsc, time::Instant},
 };
 
-
-
 #[napi]
-pub fn init_makepad(init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()>{
+pub fn init_makepad(init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()> {
     crate::log!("call initMakePad from XComponent.onLoad");
     send_from_ohos_message(FromOhosMessage::Init(init_opts));
     Ok(())
 }
 
 impl Cx {
-    fn main_loop(&mut self, from_ohos_rx:mpsc::Receiver<FromOhosMessage>){
-
+    fn main_loop(&mut self, from_ohos_rx: mpsc::Receiver<FromOhosMessage>) {
         crate::log!("entry main_loop");
 
         self.gpu_info.performance = GpuPerformance::Tier1;
-
 
         self.call_event_handler(&Event::Startup);
         self.redraw_all();
@@ -47,16 +43,12 @@ impl Cx {
                     self.handle_other_events();
                     self.handle_drawing();
                 }
-                Ok(message) => {
-                    self.handle_message(message)
-                }
+                Ok(message) => self.handle_message(message),
                 Err(e) => {
-                    crate::error!("Error receiving message: {:?}",e);
+                    crate::error!("Error receiving message: {:?}", e);
                 }
             }
-
         }
-
     }
 
     fn handle_all_pending_messages(&mut self, from_ohos_rx: &mpsc::Receiver<FromOhosMessage>) {
@@ -114,9 +106,9 @@ impl Cx {
         self.handle_repaint();
     }
 
-    fn handle_message(&mut self, msg: FromOhosMessage){
+    fn handle_message(&mut self, msg: FromOhosMessage) {
         match msg {
-            FromOhosMessage::Touch(point) =>{
+            FromOhosMessage::Touch(point) => {
                 let mut point = point;
                 let time = point.time;
                 let window = &mut self.windows[CxWindowPool::id_zero()];
@@ -124,19 +116,21 @@ impl Cx {
                 point.abs /= dpi_factor;
                 let touches = vec![point];
                 self.fingers.process_touch_update_start(time, &touches);
-                let e = Event::TouchUpdate(
-                    TouchUpdateEvent {
-                        time,
-                        window_id: CxWindowPool::id_zero(),
-                        touches,
-                        modifiers: Default::default()
-                    }
-                );
+                let e = Event::TouchUpdate(TouchUpdateEvent {
+                    time,
+                    window_id: CxWindowPool::id_zero(),
+                    touches,
+                    modifiers: Default::default(),
+                });
                 self.call_event_handler(&e);
-                let e = if let Event::TouchUpdate(e) = e {e}else {panic!()};
+                let e = if let Event::TouchUpdate(e) = e {
+                    e
+                } else {
+                    panic!()
+                };
                 self.fingers.process_touch_update_end(&e.touches);
             }
-            _ =>{}
+            _ => {}
         }
     }
 
@@ -158,7 +152,6 @@ impl Cx {
             register_xcomponent_callbacks(&env, &xcomponent);
             register_vsync_callback(from_ohos_tx);
 
-
             std::thread::spawn(move || {
                 let mut cx = startup();
                 let mut libegl = LibEgl::try_load().expect("can't load LibEGL");
@@ -166,7 +159,11 @@ impl Cx {
                     match from_ohos_rx.try_recv() {
                         Ok(FromOhosMessage::Init(params)) => {
                             cx.os.dpi_factor = params.display_density;
-                            cx.os_type = OsType::OpenHarmony(OpenHarmonyParams { device_type: params.device_type, os_full_name: params.os_full_name, display_density: params.display_density });
+                            cx.os_type = OsType::OpenHarmony(OpenHarmonyParams {
+                                device_type: params.device_type,
+                                os_full_name: params.os_full_name,
+                                display_density: params.display_density,
+                            });
                         }
                         Ok(FromOhosMessage::SurfaceCreated {
                             window,
@@ -181,53 +178,60 @@ impl Cx {
                     }
                 };
 
-                let (egl_context, egl_config, egl_display ) = unsafe {
-                    egl_sys::create_egl_context(&mut libegl).expect("Can't create EGL context")};
-                unsafe { gl_sys::load_with(|s| {
-                    let s = CString::new(s).unwrap();
-                    libegl.eglGetProcAddress.unwrap()(s.as_ptr())
-                })};
+                let (egl_context, egl_config, egl_display) = unsafe {
+                    egl_sys::create_egl_context(&mut libegl).expect("Can't create EGL context")
+                };
+                unsafe {
+                    gl_sys::load_with(|s| {
+                        let s = CString::new(s).unwrap();
+                        libegl.eglGetProcAddress.unwrap()(s.as_ptr())
+                    })
+                };
 
                 let win_attr = vec![EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE];
-                let surface = unsafe {(libegl.eglCreateWindowSurface.unwrap())(
-                    egl_display,
-                    egl_config,
-                    window as _,
-                    win_attr.as_ptr() as _
-                )};
+                let surface = unsafe {
+                    (libegl.eglCreateWindowSurface.unwrap())(
+                        egl_display,
+                        egl_config,
+                        window as _,
+                        win_attr.as_ptr() as _,
+                    )
+                };
 
-                if surface.is_null(){
-                    let err_code = unsafe {(libegl.eglGetError.unwrap())()};
+                if surface.is_null() {
+                    let err_code = unsafe { (libegl.eglGetError.unwrap())() };
                     crate::log!("eglCreateWindowSurface error code:{}", err_code);
                 }
                 assert!(!surface.is_null());
 
                 crate::log!("eglCreateWindowSurface success");
-                unsafe { (libegl.eglSwapBuffers.unwrap())(egl_display, surface); }
+                unsafe {
+                    (libegl.eglSwapBuffers.unwrap())(egl_display, surface);
+                }
 
-                if unsafe {(libegl.eglMakeCurrent.unwrap())(egl_display,surface,surface,egl_context)}==0{
+                if unsafe {
+                    (libegl.eglMakeCurrent.unwrap())(egl_display, surface, surface, egl_context)
+                } == 0
+                {
                     panic!();
                 }
 
-                cx.os.display = Some(CxOhosDisplay{
+                cx.os.display = Some(CxOhosDisplay {
                     libegl,
                     egl_display,
                     egl_config,
                     egl_context,
                     surface,
-                    window
+                    window,
                 });
 
                 cx.main_loop(from_ohos_rx);
                 //TODO, destroy surface
             });
-
         } else {
             crate::log!("Failed to get xcomponent in ohos_init");
         }
     }
-
-
 
     pub fn draw_pass_to_fullscreen(&mut self, pass_id: PassId) {
         let draw_list_id = self.passes[pass_id].main_draw_list_id.unwrap();
@@ -239,7 +243,12 @@ impl Cx {
 
         unsafe {
             //direct_app.egl.make_current();
-            gl_sys::Viewport(0, 0, self.os.display_size.x as i32, self.os.display_size.y as i32);
+            gl_sys::Viewport(
+                0,
+                0,
+                self.os.display_size.x as i32,
+                self.os.display_size.y as i32,
+            );
         }
 
         let clear_color = if self.passes[pass_id].color_textures.len() == 0 {
@@ -270,7 +279,7 @@ impl Cx {
 
         self.render_view(pass_id, draw_list_id, &mut zbias, zbias_step);
 
-        unsafe {self.os.display.as_mut().unwrap().swap_buffers()};
+        unsafe { self.os.display.as_mut().unwrap().swap_buffers() };
 
         //unsafe {
         //direct_app.drm.swap_buffers_and_wait(&direct_app.egl);
@@ -303,7 +312,10 @@ impl Cx {
             match op {
                 CxOsOp::CreateWindow(window_id) => {
                     let window = &mut self.windows[window_id];
-                    let size = dvec2(self.os.display_size.x / self.os.dpi_factor, self.os.display_size.y / self.os.dpi_factor);
+                    let size = dvec2(
+                        self.os.display_size.x / self.os.dpi_factor,
+                        self.os.display_size.y / self.os.dpi_factor,
+                    );
                     window.window_geom = WindowGeom {
                         dpi_factor: self.os.dpi_factor,
                         can_fullscreen: false,
@@ -312,25 +324,28 @@ impl Cx {
                         is_topmost: true,
                         position: dvec2(0.0, 0.0),
                         inner_size: size,
-                        outer_size: size
+                        outer_size: size,
                     };
                     window.is_created = true;
-                },
+                }
                 CxOsOp::SetCursor(_cursor) => {
                     //xlib_app.set_mouse_cursor(cursor);
-                },
-                CxOsOp::StartTimer {timer_id, interval, repeats} => {
+                }
+                CxOsOp::StartTimer {
+                    timer_id,
+                    interval,
+                    repeats,
+                } => {
                     self.os.timers.start_timer(timer_id, interval, repeats);
-                },
+                }
                 CxOsOp::StopTimer(timer_id) => {
                     self.os.timers.stop_timer(timer_id);
-                },
-                _ => ()
+                }
+                _ => (),
             }
         }
         EventFlow::Poll
     }
-
 }
 
 impl CxOsApi for Cx {
@@ -372,11 +387,10 @@ pub struct CxOs {
     pub display_size: DVec2,
     pub dpi_factor: f64,
     pub media: CxOpenHarmonyMedia,
-    pub quit : bool,
+    pub quit: bool,
     pub timers: SelectTimers,
     pub(crate) start_time: Instant,
-    pub(crate) display : Option<CxOhosDisplay>,
-
+    pub(crate) display: Option<CxOhosDisplay>,
 }
 
 impl Default for CxOs {
@@ -388,7 +402,7 @@ impl Default for CxOs {
             quit: false,
             timers: SelectTimers::new(),
             start_time: Instant::now(),
-            display:None
+            display: None,
         }
     }
 }
@@ -405,7 +419,7 @@ impl CxOhosDisplay {
         self.surface = std::ptr::null_mut();
     }
 
-    unsafe fn update_surface(&mut self, window:  *mut c_void) {
+    unsafe fn update_surface(&mut self, window: *mut c_void) {
         if !self.window.is_null() {
             //todo release window
         }
@@ -419,11 +433,11 @@ impl CxOhosDisplay {
             self.egl_display,
             self.egl_config,
             self.window as _,
-            win_attr.as_ptr() as _
+            win_attr.as_ptr() as _,
         );
 
-        if self.surface.is_null(){
-            let err_code = unsafe {(self.libegl.eglGetError.unwrap())()};
+        if self.surface.is_null() {
+            let err_code = unsafe { (self.libegl.eglGetError.unwrap())() };
             crate::log!("eglCreateWindowSurface error code:{}", err_code);
         }
 
@@ -437,9 +451,14 @@ impl CxOhosDisplay {
     }
 
     unsafe fn make_current(&mut self) {
-        if (self.libegl.eglMakeCurrent.unwrap())(self.egl_display,self.surface,self.surface,self.egl_context)==0 {
+        if (self.libegl.eglMakeCurrent.unwrap())(
+            self.egl_display,
+            self.surface,
+            self.surface,
+            self.egl_context,
+        ) == 0
+        {
             panic!();
         }
     }
-
 }

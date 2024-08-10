@@ -1,18 +1,18 @@
+use self::super::oh_sys::*;
+use crate::area::Area;
+use crate::event::{TouchPoint, TouchState};
+use crate::makepad_math::*;
 use napi_derive_ohos::napi;
 use napi_ohos::{Env, JsObject, NapiRaw};
-use std::sync::mpsc;
-use std::os::raw::c_void;
-use std::cell::{RefCell,Cell};
-use std::mem::MaybeUninit;
 use ohos_sys::xcomponent::{
     OH_NativeXComponent, OH_NativeXComponent_Callback, OH_NativeXComponent_GetTouchEvent,
-    OH_NativeXComponent_RegisterCallback, OH_NativeXComponent_TouchEvent,
-    OH_NativeXComponent_TouchEventType,OH_NativeXComponent_GetXComponentSize
+    OH_NativeXComponent_GetXComponentSize, OH_NativeXComponent_RegisterCallback,
+    OH_NativeXComponent_TouchEvent, OH_NativeXComponent_TouchEventType,
 };
-use self::super::oh_sys::*;
-use crate::event::{TouchPoint,TouchState};
-use crate::area::Area;
-use crate::makepad_math::*;
+use std::cell::{Cell, RefCell};
+use std::mem::MaybeUninit;
+use std::os::raw::c_void;
+use std::sync::mpsc;
 
 #[napi(object)]
 #[derive(Clone, Debug)]
@@ -26,9 +26,8 @@ unsafe impl Send for FromOhosMessage {}
 
 struct VSyncParams {
     pub vsync: *mut OH_NativeVSync,
-    pub tx:mpsc::Sender<FromOhosMessage>
+    pub tx: mpsc::Sender<FromOhosMessage>,
 }
-
 
 thread_local! {
     static OHOS_MSG_TX: RefCell<Option<mpsc::Sender<FromOhosMessage>>> = RefCell::new(None);
@@ -43,32 +42,46 @@ pub fn send_from_ohos_message(message: FromOhosMessage) {
 
 #[no_mangle]
 extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, window: *mut c_void) {
-    let mut width :u64 = 0;
-    let mut height :u64 = 0;
+    let mut width: u64 = 0;
+    let mut height: u64 = 0;
 
-    let ret = unsafe {OH_NativeXComponent_GetXComponentSize(
-        xcomponent,
+    let ret = unsafe {
+        OH_NativeXComponent_GetXComponentSize(xcomponent, window, &mut width, &mut height)
+    };
+
+    crate::log!(
+        "OnSurfaceCreateCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",
+        ret,
+        width,
+        height
+    );
+    send_from_ohos_message(FromOhosMessage::SurfaceCreated {
         window,
-        & mut width,
-        & mut height)};
-
-    crate::log!("OnSurfaceCreateCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",ret,width,height);
-    send_from_ohos_message(FromOhosMessage::SurfaceCreated { window, width: width as i32, height:height as i32 });
+        width: width as i32,
+        height: height as i32,
+    });
 }
 
 #[no_mangle]
 extern "C" fn on_surface_changed_cb(xcomponent: *mut OH_NativeXComponent, window: *mut c_void) {
-    let mut width :u64 = 0;
-    let mut height :u64 = 0;
+    let mut width: u64 = 0;
+    let mut height: u64 = 0;
 
-    let ret = unsafe {OH_NativeXComponent_GetXComponentSize(
-        xcomponent,
+    let ret = unsafe {
+        OH_NativeXComponent_GetXComponentSize(xcomponent, window, &mut width, &mut height)
+    };
+
+    crate::log!(
+        "OnSurfaceChangeCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",
+        ret,
+        width,
+        height
+    );
+    send_from_ohos_message(FromOhosMessage::SurfaceChanged {
         window,
-        & mut width,
-        & mut height)};
-
-    crate::log!("OnSurfaceChangeCallBack,OH_NativeXComponent_GetXComponentSize={},width={},hight={}",ret,width,height);
-    send_from_ohos_message(FromOhosMessage::SurfaceChanged { window, width: width as i32, height:height as i32 });
+        width: width as i32,
+        height: height as i32,
+    });
 }
 
 #[no_mangle]
@@ -87,13 +100,11 @@ extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent, wi
     }
     let touch_event = unsafe { touch_event.assume_init() };
 
-
-
     let touch_state = match touch_event.type_ {
-        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_DOWN => {TouchState::Start},
-        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_UP => {TouchState::Stop},
-        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_MOVE => {TouchState::Move},
-        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_CANCEL => {TouchState::Move},
+        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_DOWN => TouchState::Start,
+        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_UP => TouchState::Stop,
+        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_MOVE => TouchState::Move,
+        OH_NativeXComponent_TouchEventType::OH_NATIVEXCOMPONENT_CANCEL => TouchState::Move,
         _ => {
             crate::error!(
                 "Failed to dispatch call for touch Event {:?}",
@@ -102,16 +113,16 @@ extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent, wi
             TouchState::Move
         }
     };
-    let point = TouchPoint{
-        state:touch_state,
+    let point = TouchPoint {
+        state: touch_state,
         abs: dvec2(touch_event.x as f64, touch_event.y as f64),
         time: touch_event.timeStamp as f64 / 1000.0,
-        uid:touch_event.id as u64,
+        uid: touch_event.id as u64,
         rotation_angle: 0.0,
-        force:touch_event.force as f64,
-        radius:dvec2(1.0, 1.0),
-        handled:Cell::new(Area::Empty),
-        sweep_lock:Cell::new(Area::Empty),
+        force: touch_event.force as f64,
+        radius: dvec2(1.0, 1.0),
+        handled: Cell::new(Area::Empty),
+        sweep_lock: Cell::new(Area::Empty),
     };
     send_from_ohos_message(FromOhosMessage::Touch(point));
     //crate::log!("OnDispatchTouchEventCallBack");
@@ -119,15 +130,21 @@ extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent, wi
 
 #[no_mangle]
 extern "C" fn on_vsync_cb(_timestamp: ::core::ffi::c_longlong, data: *mut c_void) {
-    unsafe {let _ = (*(data as * mut VSyncParams)).tx.send(FromOhosMessage::VSync);}
-    let res = unsafe {OH_NativeVSync_RequestFrame((*(data as * mut VSyncParams)).vsync, on_vsync_cb, data)};
-    if res !=0 {
+    unsafe {
+        let _ = (*(data as *mut VSyncParams))
+            .tx
+            .send(FromOhosMessage::VSync);
+    }
+    let res = unsafe {
+        OH_NativeVSync_RequestFrame((*(data as *mut VSyncParams)).vsync, on_vsync_cb, data)
+    };
+    if res != 0 {
         crate::error!("Failed to register vsync callbacks");
     }
     //crate::log!("OnVSyncCallBack, timestamp = {}, register call back = {}",timestamp,res);
 }
 
-pub fn init_globals(from_ohos_tx: mpsc::Sender<FromOhosMessage>){
+pub fn init_globals(from_ohos_tx: mpsc::Sender<FromOhosMessage>) {
     OHOS_MSG_TX.with(move |messages_tx| *messages_tx.borrow_mut() = Some(from_ohos_tx));
 }
 
@@ -161,19 +178,23 @@ pub fn register_xcomponent_callbacks(env: &Env, xcomponent: &JsObject) {
     }
 }
 
-pub fn register_vsync_callback(from_ohos_tx:mpsc::Sender<FromOhosMessage>) {
+pub fn register_vsync_callback(from_ohos_tx: mpsc::Sender<FromOhosMessage>) {
     //vsync call back
-    let vsync = unsafe { OH_NativeVSync_Create(c"makepad".as_ptr(), 7)};
-    let param = VSyncParams{vsync:vsync,tx: from_ohos_tx};
+    let vsync = unsafe { OH_NativeVSync_Create(c"makepad".as_ptr(), 7) };
+    let param = VSyncParams {
+        vsync: vsync,
+        tx: from_ohos_tx,
+    };
     let data = Box::new(param);
-    let res = unsafe {OH_NativeVSync_RequestFrame(vsync, on_vsync_cb, Box::into_raw(data) as * mut c_void)};
+    let res = unsafe {
+        OH_NativeVSync_RequestFrame(vsync, on_vsync_cb, Box::into_raw(data) as *mut c_void)
+    };
     if res != 0 {
         crate::error!("Failed to register vsync callbacks");
     } else {
         crate::log!("Registerd callbacks vsync successfully");
     }
 }
-
 
 #[derive(Debug)]
 pub enum FromOhosMessage {
@@ -189,6 +210,6 @@ pub enum FromOhosMessage {
         height: i32,
     },
     VSync,
-    Touch(TouchPoint)
+    Touch(TouchPoint),
 }
 //TODO DIP
