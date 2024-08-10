@@ -1,15 +1,11 @@
-//use crate::{egl_sys::{create_egl_context, LibEgl, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE}, event::window};
-
 use {
     self::super::super::{gl_sys, select_timer::SelectTimers},
-    self::super::{oh_sys::*, oh_callbacks::*,  oh_media::CxOpenHarmonyMedia},
+    self::super::{oh_callbacks::*,  oh_media::CxOpenHarmonyMedia},
     crate::{
-        area::Area,
         cx::{Cx, OpenHarmonyParams, OsType},
         cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
-        event::{Event, TimerEvent, WindowGeom, TouchPoint, TouchState, TouchUpdateEvent},
+        event::{Event, WindowGeom, TouchUpdateEvent},
         gpu_info::GpuPerformance,
-        makepad_live_id::*,
         makepad_math::*,
         os::cx_native::EventFlow,
         //window::CxWindowPool,
@@ -18,25 +14,12 @@ use {
         thread::SignalToUI,
         window::CxWindowPool,
     },
-    std::cell::RefCell,
-    std::cell::Cell,
-    std::rc::Rc,
     std::time::Instant,
 };
 
-use std::mem::MaybeUninit;
 use crate::egl_sys::{self, LibEgl,EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE};
-use napi_derive_ohos::{module_exports, napi};
-use napi_ohos::bindgen_prelude::Undefined;
-use napi_ohos::threadsafe_function::{
-    ErrorStrategy, ThreadsafeFunction, ThreadsafeFunctionCallMode,
-};
-use napi_ohos::{Env, JsFunction, JsObject, JsString, NapiRaw};
-use ohos_sys::xcomponent::{
-    self, OH_NativeXComponent, OH_NativeXComponent_Callback, OH_NativeXComponent_GetTouchEvent,
-    OH_NativeXComponent_RegisterCallback, OH_NativeXComponent_TouchEvent,
-    OH_NativeXComponent_TouchEventType,OH_NativeXComponent_GetXComponentSize
-};
+use napi_derive_ohos::napi;
+use napi_ohos::{Env, JsObject};
 use std::{ffi::CString, os::raw::c_void, ptr::null_mut};
 use std::ptr::null;
 use std::sync::mpsc;
