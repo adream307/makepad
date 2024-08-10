@@ -118,7 +118,7 @@ extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent, wi
 }
 
 #[no_mangle]
-extern "C" fn on_vsync_cb(timestamp: ::core::ffi::c_longlong, data: *mut c_void) {
+extern "C" fn on_vsync_cb(_timestamp: ::core::ffi::c_longlong, data: *mut c_void) {
     unsafe {let _ = (*(data as * mut VSyncParams)).tx.send(FromOhosMessage::VSync);}
     let res = unsafe {OH_NativeVSync_RequestFrame((*(data as * mut VSyncParams)).vsync, on_vsync_cb, data)};
     if res !=0 {
