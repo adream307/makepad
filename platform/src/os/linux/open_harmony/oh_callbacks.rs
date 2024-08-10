@@ -191,3 +191,4 @@ pub enum FromOhosMessage {
     VSync,
     Touch(TouchPoint)
 }
+//TODO DIP
