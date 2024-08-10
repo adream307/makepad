@@ -24,7 +24,7 @@ pub struct OpenHarmonyInitOptions {
 
 unsafe impl Send for FromOhosMessage {}
 
-pub struct VSyncParams {
+struct VSyncParams {
     pub vsync: *mut OH_NativeVSync,
     pub tx:mpsc::Sender<FromOhosMessage>
 }
@@ -42,7 +42,7 @@ pub fn send_from_ohos_message(message: FromOhosMessage) {
 }
 
 #[no_mangle]
-pub extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, window: *mut c_void) {
+extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, window: *mut c_void) {
     let mut width :u64 = 0;
     let mut height :u64 = 0;
 
@@ -57,7 +57,7 @@ pub extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, wi
 }
 
 #[no_mangle]
-pub extern "C" fn on_surface_changed_cb(xcomponent: *mut OH_NativeXComponent, window: *mut c_void) {
+extern "C" fn on_surface_changed_cb(xcomponent: *mut OH_NativeXComponent, window: *mut c_void) {
     let mut width :u64 = 0;
     let mut height :u64 = 0;
 
@@ -72,12 +72,12 @@ pub extern "C" fn on_surface_changed_cb(xcomponent: *mut OH_NativeXComponent, wi
 }
 
 #[no_mangle]
-pub extern "C" fn on_surface_destroyed_cb(component: *mut OH_NativeXComponent, window: *mut c_void) {
+extern "C" fn on_surface_destroyed_cb(component: *mut OH_NativeXComponent, window: *mut c_void) {
     crate::log!("OnSurcefaceDestroyCallBack");
 }
 
 #[no_mangle]
-pub extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent, window: *mut c_void) {
+extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent, window: *mut c_void) {
     let mut touch_event: MaybeUninit<OH_NativeXComponent_TouchEvent> = MaybeUninit::uninit();
     let res =
         unsafe { OH_NativeXComponent_GetTouchEvent(component, window, touch_event.as_mut_ptr()) };
@@ -118,8 +118,7 @@ pub extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent
 }
 
 #[no_mangle]
-pub extern "C" fn on_vsync_cb(timestamp: ::core::ffi::c_longlong, data: *mut c_void) {
-
+extern "C" fn on_vsync_cb(timestamp: ::core::ffi::c_longlong, data: *mut c_void) {
     unsafe {let _ = (*(data as * mut VSyncParams)).tx.send(FromOhosMessage::VSync);}
     let res = unsafe {OH_NativeVSync_RequestFrame((*(data as * mut VSyncParams)).vsync, on_vsync_cb, data)};
     if res !=0 {
