@@ -1,6 +1,9 @@
 use {
-    self::super::super::{gl_sys, select_timer::SelectTimers},
-    self::super::{oh_callbacks::*, oh_media::CxOpenHarmonyMedia},
+    self::super::{
+        super::{gl_sys, select_timer::SelectTimers},
+        oh_callbacks::*,
+        oh_media::CxOpenHarmonyMedia,
+    },
     crate::{
         cx::{Cx, OpenHarmonyParams, OsType},
         cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
@@ -10,8 +13,7 @@ use {
         makepad_math::*,
         os::cx_native::EventFlow,
         //window::CxWindowPool,
-        pass::CxPassParent,
-        pass::{PassClearColor, PassClearDepth, PassId},
+        pass::{CxPassParent, PassClearColor, PassClearDepth, PassId},
         thread::SignalToUI,
         window::CxWindowPool,
     },
@@ -22,7 +24,10 @@ use {
 
 #[napi]
 pub fn init_makepad(init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()> {
-    crate::log!("call initMakePad from XComponent.onLoad, display_density = {}",init_opts.display_density);
+    crate::log!(
+        "call initMakePad from XComponent.onLoad, display_density = {}",
+        init_opts.display_density
+    );
     send_from_ohos_message(FromOhosMessage::Init(init_opts));
     Ok(())
 }
@@ -134,6 +139,39 @@ impl Cx {
         }
     }
 
+    fn handle_surface_create(
+        &mut self,
+        from_ohos_rx: &mpsc::Receiver<FromOhosMessage>,
+    ) -> *mut c_void {
+        loop {
+            match from_ohos_rx.recv() {
+                Ok(FromOhosMessage::SurfaceCreated {
+                    window,
+                    width,
+                    height,
+                }) => {
+                    loop {
+                        match from_ohos_rx.recv() {
+                            Ok(FromOhosMessage::Init(params)) => {
+                                self.os.dpi_factor = params.display_density;
+                                self.os_type = OsType::OpenHarmony(OpenHarmonyParams {
+                                    device_type: params.device_type,
+                                    os_full_name: params.os_full_name,
+                                    display_density: params.display_density,
+                                });
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                    self.os.display_size = dvec2(width as f64, height as f64);
+                    return window;
+                }
+                _ => {}
+            }
+        }
+    }
+
     pub fn ohos_init<F>(exports: JsObject, env: Env, startup: F)
     where
         F: FnOnce() -> Box<Cx> + Send + 'static,
@@ -155,28 +193,7 @@ impl Cx {
             std::thread::spawn(move || {
                 let mut cx = startup();
                 let mut libegl = LibEgl::try_load().expect("can't load LibEGL");
-                let window = loop {
-                    match from_ohos_rx.try_recv() {
-                        Ok(FromOhosMessage::Init(params)) => {
-                            cx.os.dpi_factor = params.display_density;
-                            cx.os_type = OsType::OpenHarmony(OpenHarmonyParams {
-                                device_type: params.device_type,
-                                os_full_name: params.os_full_name,
-                                display_density: params.display_density,
-                            });
-                        }
-                        Ok(FromOhosMessage::SurfaceCreated {
-                            window,
-                            width,
-                            height,
-                        }) => {
-                            cx.os.display_size = dvec2(width as f64, height as f64);
-                            cx.os.dpi_factor = 3.25; //TODO, get from screen api
-                            break window;
-                        }
-                        _ => {}
-                    }
-                };
+                let window = cx.handle_surface_create(&from_ohos_rx);
 
                 let (egl_context, egl_config, egl_display) = unsafe {
                     egl_sys::create_egl_context(&mut libegl).expect("Can't create EGL context")
