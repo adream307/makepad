@@ -1,4 +1,4 @@
-use crate::{egl_sys::{create_egl_context, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE}, event::window};
+//use crate::{egl_sys::{create_egl_context, LibEgl, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE}, event::window};
 
 use {
     self::super::super::{gl_sys, select_timer::SelectTimers},
@@ -25,7 +25,7 @@ use {
 };
 
 use std::mem::MaybeUninit;
-use self::super::super::egl_sys::{self, LibEgl};
+use crate::egl_sys::{self, LibEgl,EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE};
 use napi_derive_ohos::{module_exports, napi};
 use napi_ohos::bindgen_prelude::Undefined;
 use napi_ohos::threadsafe_function::{
