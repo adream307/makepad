@@ -104,7 +104,7 @@ extern "C" fn on_dispatch_touch_event_cb(component: *mut OH_NativeXComponent, wi
     };
     let point = TouchPoint{
         state:touch_state,
-        abs: dvec2(touch_event.x as f64 / 3.25, touch_event.y as f64 / 3.25), //TODO DIP
+        abs: dvec2(touch_event.x as f64, touch_event.y as f64),
         time: touch_event.timeStamp as f64 / 1000.0,
         uid:touch_event.id as u64,
         rotation_angle: 0.0,
