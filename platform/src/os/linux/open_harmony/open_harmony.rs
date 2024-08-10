@@ -2,7 +2,7 @@ use crate::{egl_sys::{create_egl_context, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPA
 
 use {
     self::super::super::{gl_sys, select_timer::SelectTimers},
-    self::super::{oh_event::*, oh_media::CxOpenHarmonyMedia},
+    self::super::{oh_media::CxOpenHarmonyMedia},
     crate::{
         area::Area,
         cx::{Cx, OpenHarmonyParams, OsType},
