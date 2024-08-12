@@ -197,7 +197,7 @@ pub fn register_vsync_callback(from_ohos_tx: mpsc::Sender<FromOhosMessage>) {
 }
 
 #[allow(unused)]
-fn debug_jsobject(obj: &JsObject, obj_name: &str) -> napi_ohos::Result<()> {
+pub fn debug_jsobject(obj: &JsObject, obj_name: &str) -> napi_ohos::Result<()> {
     let names = obj.get_property_names()?;
     crate::log!("Getting property names of object {obj_name}");
     let len = names.get_array_length()?;
