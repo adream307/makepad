@@ -37,7 +37,7 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::R
         status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global, c"golbalThis".as_ptr(), & mut global_this )};
         if status == 0 {
             crate::log!("============= get globalThis");
-            let mut global_type: napi_valuetype = 0;
+            let mut global_type: napi_ohos::sys::napi_valuetype = 0;
             status = unsafe { napi_ohos::sys::napi_typeof(raw_env,global_this,& mut global_type) };
             if status == 0 {
                 crate::log!("======== golbalThis, type = {}", global_type);
