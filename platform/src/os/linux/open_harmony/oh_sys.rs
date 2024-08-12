@@ -6,6 +6,11 @@ pub struct OH_NativeVSync {
     _unused: [u8; 0],
 }
 
+#[repr(C)]
+pub struct NativeResourceManager {
+    _unused: [u8; 0],
+}
+
 #[link(name = "ace_napi.z")]
 #[link(name = "ace_ndk.z")]
 #[link(name = "hilog_ndk.z")]
@@ -27,4 +32,6 @@ extern "C" {
         nativeVsync: *mut OH_NativeVSync,
         period: *mut ::core::ffi::c_longlong,
     ) -> ::core::ffi::c_int;
+
+    pub fn OH_ResourceManager_InitNativeResourceManager(env: napi_ohos::sys::napi_env, jsResMgr: napi_ohos::sys::napi_value) -> *mut NativeResourceManager;
 }
