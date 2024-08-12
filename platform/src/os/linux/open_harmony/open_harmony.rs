@@ -37,6 +37,11 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::R
         status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global, c"golbalThis".as_ptr(), & mut global_this )};
         if status == 0 {
             crate::log!("============= get globalThis");
+            let mut this_ctx = std::ptr::null_mut();
+            status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global_this, c"context".as_ptr(), & mut this_ctx)};
+            if status == 0 {
+                crate::log!("========= get context");
+            }
         }
     }
     send_from_ohos_message(FromOhosMessage::Init(init_opts));
