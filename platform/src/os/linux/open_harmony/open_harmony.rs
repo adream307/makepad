@@ -72,7 +72,8 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::R
                             let file_data = unsafe {
                                 let raw_file = OH_ResourceManager_OpenRawFile(native_res_mgr, c"hello.txt".as_ptr());
                                 let file_length = OH_ResourceManager_GetRawFileSize(raw_file);
-                                let data = Vec::<u8>::with_capacity(file_length.try_into().unwrap());
+                                //let data = Vec::<u8>::with_capacity(file_length.try_into().unwrap());
+                                let data = vec![0 as u8; file_length.try_into().unwrap()];
                                 OH_ResourceManager_ReadRawFile(raw_file,data.as_ptr() as * mut ::core::ffi::c_void, file_length.try_into().unwrap());
                                 if let Ok(file_msg) = String::from_utf8(data) {
                                     file_msg
