@@ -51,13 +51,25 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::R
                 if status==0 {
                     crate::log!("===== globalThis.context type = {}", ctx_type);
                 }
-                let mut res_mgr = std::ptr::null_mut();
-                status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, this_ctx, c"resourceManager".as_ptr(), & mut res_mgr)};
+                let mut ctx_recv = std::ptr::null_mut();
+                unsafe { sys::napi_get_undefined(raw_env, &mut ctx_recv) };
+                let mut call_this = std::ptr::null_mut();
+                status = unsafe {napi_ohos::sys::napi_call_function(raw_env, ctx_recv, this_ctx, 0, std::ptr::null(), & mut call_this)};
                 if status == 0 {
-                    crate::log!("======= get resource manager");
-                }else{
-                    crate::log!("======== get resouce manager failed, error code = {}",status);
+                    crate::log!("==== call getContext success");
+                    status = unsafe { napi_ohos::sys::napi_typeof(raw_env,call_this,& mut ctx_type) };
+                    if status==0 {
+                        crate::log!("===== globalThis.getContext() type = {}", ctx_type);
+                    }
                 }
+
+                // let mut res_mgr = std::ptr::null_mut();
+                // status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, this_ctx, c"resourceManager".as_ptr(), & mut res_mgr)};
+                // if status == 0 {
+                //     crate::log!("======= get resource manager");
+                // }else{
+                //     crate::log!("======== get resouce manager failed, error code = {}",status);
+                // }
 
             } else{
                 crate::log!("========= get context failed, error code = {}",status);
