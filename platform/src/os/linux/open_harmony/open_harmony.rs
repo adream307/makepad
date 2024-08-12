@@ -2,8 +2,8 @@ use {
     self::super::{
         super::{gl_sys, select_timer::SelectTimers},
         oh_callbacks::*,
-        oh_sys::*,
         oh_media::CxOpenHarmonyMedia,
+        oh_sys::*
     },
     crate::{
         cx::{Cx, OpenHarmonyParams, OsType},
@@ -13,10 +13,9 @@ use {
         gpu_info::GpuPerformance,
         makepad_math::*,
         os::cx_native::EventFlow,
-        //window::CxWindowPool,
         pass::{CxPassParent, PassClearColor, PassClearDepth, PassId},
         thread::SignalToUI,
-        window::CxWindowPool,
+        window::CxWindowPool
     },
     napi_derive_ohos::napi,
     napi_ohos::{bindgen_prelude::*, Env, JsObject},
@@ -70,6 +69,13 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::R
                         let native_res_mgr = unsafe { OH_ResourceManager_InitNativeResourceManager(raw_env, res_mgr)};
                         if native_res_mgr.is_null()==false {
                             crate::log!("OH_ResourceManager_InitNativeResourceManager success");
+                            let file_data = unsafe {
+                                let raw_file = OH_ResourceManager_OpenRawFile(native_res_mgr, c"hello.txt".as_ptr());
+                                let file_length = OH_ResourceManager_GetRawFileSize(raw_file);
+                                file_length
+                            };
+                            crate::log!("hello.txt file size = {}",file_data);
+
                         } else {
                             crate::log!("OH_ResourceManager_InitNativeResourceManager failed");
                         }
