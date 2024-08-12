@@ -46,6 +46,19 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::R
             status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global_this, c"context".as_ptr(), & mut this_ctx)};
             if status == 0 {
                 crate::log!("========= get context");
+                let mut ctx_type: napi_ohos::sys::napi_valuetype = 0;
+                status = unsafe { napi_ohos::sys::napi_typeof(raw_env,this_ctx,& mut ctx_type) };
+                if status==0 {
+                    crate::log!("===== globalThis.context type = {}", ctx_type);
+                }
+                let mut res_mgr = std::ptr::null_mut();
+                status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, this_ctx, c"resourceManager".as_ptr(), & mut res_mgr)};
+                if status == 0 {
+                    crate::log!("======= get resource manager");
+                }else{
+                    crate::log!("======== get resouce manager failed, error code = {}",status);
+                }
+
             } else{
                 crate::log!("========= get context failed, error code = {}",status);
             }
