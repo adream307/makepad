@@ -9,6 +9,7 @@ pub struct OH_NativeVSync {
 #[link(name = "ace_napi.z")]
 #[link(name = "ace_ndk.z")]
 #[link(name = "hilog_ndk.z")]
+#[link(name = "rawfile.z")]
 #[link(name = "native_window")]
 #[link(name = "native_vsync")]
 extern "C" {

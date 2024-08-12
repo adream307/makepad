@@ -18,16 +18,28 @@ use {
         window::CxWindowPool,
     },
     napi_derive_ohos::napi,
-    napi_ohos::{Env, JsObject},
+    napi_ohos::{bindgen_prelude::*, Env, JsObject},
     std::{ffi::CString, os::raw::c_void, sync::mpsc, time::Instant},
 };
 
 #[napi]
-pub fn init_makepad(init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()> {
+pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()> {
     crate::log!(
         "call initMakePad from XComponent.onLoad, display_density = {}",
         init_opts.display_density
     );
+    if let Ok(global) = env.get_global() {
+        crate::log!("======== get global");
+        if let Ok(global_this) =  global.get_named_property::<JsObject>("globalThis") {
+            crate::log!("======== get globalThis");
+            if let Ok(this_ctx) = global_this.get_named_property::<JsObject>("context"){
+                crate::log!("======== get context");
+                if let Ok(resMgr) =  this_ctx.get_named_property::<JsObject>("resourceManager"){
+                    crate::log!("======== get resourceManager");
+                }
+            }
+        }
+    }
     send_from_ohos_message(FromOhosMessage::Init(init_opts));
     Ok(())
 }
