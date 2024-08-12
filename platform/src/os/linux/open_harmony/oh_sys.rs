@@ -11,6 +11,11 @@ pub struct NativeResourceManager {
     _unused: [u8; 0],
 }
 
+#[repr(C)]
+pub struct RawFile {
+    _unused: [u8; 0],
+}
+
 #[link(name = "ace_napi.z")]
 #[link(name = "ace_ndk.z")]
 #[link(name = "hilog_ndk.z")]
@@ -34,4 +39,13 @@ extern "C" {
     ) -> ::core::ffi::c_int;
 
     pub fn OH_ResourceManager_InitNativeResourceManager(env: napi_ohos::sys::napi_env, jsResMgr: napi_ohos::sys::napi_value) -> *mut NativeResourceManager;
+    pub fn OH_ResourceManager_ReleaseNativeResourceManager(resMgr: * mut NativeResourceManager) -> ::core::ffi::c_void;
+
+    pub fn OH_ResourceManager_OpenRawFile (mgr :* const NativeResourceManager, fileName: * const ::core::ffi::c_char) -> * mut RawFile;
+
+    pub fn OH_ResourceManager_GetRawFileSize (rawFile: * mut RawFile) -> ::core::ffi::c_long;
+
+    pub fn OH_ResourceManager_CloseRawFile (rawFile: * mut RawFile) -> ::core::ffi::c_void;
+
+    pub fn OH_ResourceManager_ReadRawFile (rawFile: * const RawFile, buf: * mut ::core::ffi::c_void, length: ::core::ffi::c_ulong) -> ::core::ffi::c_int;
 }
