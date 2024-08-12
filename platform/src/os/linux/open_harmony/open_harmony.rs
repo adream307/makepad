@@ -34,13 +34,13 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::R
     if status == 0 {
         crate::log!("========== get global");
         let mut global_this = std::ptr::null_mut();
-        status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global, c"golbalThis".as_ptr(), & mut global_this )};
+        status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global, c"globalThis".as_ptr(), & mut global_this )};
         if status == 0 {
             crate::log!("============= get globalThis");
             let mut global_type: napi_ohos::sys::napi_valuetype = 0;
             status = unsafe { napi_ohos::sys::napi_typeof(raw_env,global_this,& mut global_type) };
             if status == 0 {
-                crate::log!("======== golbalThis, type = {}", global_type);
+                crate::log!("======== globalThis, type = {}", global_type);
             }
             let mut this_ctx = std::ptr::null_mut();
             status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global_this, c"context".as_ptr(), & mut this_ctx)};
