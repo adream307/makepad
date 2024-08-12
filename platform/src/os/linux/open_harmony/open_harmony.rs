@@ -2,6 +2,7 @@ use {
     self::super::{
         super::{gl_sys, select_timer::SelectTimers},
         oh_callbacks::*,
+        oh_sys::*,
         oh_media::CxOpenHarmonyMedia,
     },
     crate::{
@@ -66,6 +67,12 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::R
                     status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, call_this, c"resourceManager".as_ptr(), & mut res_mgr)};
                     if status == 0 {
                         crate::log!("======= get resource manager");
+                        let native_res_mgr = unsafe { OH_ResourceManager_InitNativeResourceManager(raw_env, res_mgr)};
+                        if native_res_mgr.is_null()==false {
+                            crate::log!("OH_ResourceManager_InitNativeResourceManager success");
+                        } else {
+                            crate::log!("OH_ResourceManager_InitNativeResourceManager failed");
+                        }
                     }else{
                         crate::log!("======== get resouce manager failed, error code = {}",status);
                     }
