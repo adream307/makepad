@@ -28,16 +28,15 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::R
         "call initMakePad from XComponent.onLoad, display_density = {}",
         init_opts.display_density
     );
-    if let Ok(global) = env.get_global() {
-        crate::log!("======== get global");
-        if let Ok(global_this) =  global.get_named_property::<JsObject>("globalThis") {
-            crate::log!("======== get globalThis");
-            if let Ok(this_ctx) = global_this.get_named_property::<JsObject>("context"){
-                crate::log!("======== get context");
-                if let Ok(resMgr) =  this_ctx.get_named_property::<JsObject>("resourceManager"){
-                    crate::log!("======== get resourceManager");
-                }
-            }
+    let raw_ent = env.raw();
+    let mut global = std::ptr::null_mut();
+    let mut status =  unsafe { napi_ohos::sys::napi_get_global(raw_env, & mut global)};
+    if Status == 0 {
+        crate::log!("========== get global");
+        let global_this = std::ptr::null_mut();
+        status = unsafe { napi_ohos::sys::napi_get_named_property(env, global, c"golbalThis", & mut global_this )};
+        if Status == 0 {
+            crate::log!("============= get globalThis");
         }
     }
     send_from_ohos_message(FromOhosMessage::Init(init_opts));
