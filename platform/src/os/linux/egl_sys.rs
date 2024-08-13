@@ -556,6 +556,6 @@ pub unsafe  fn create_egl_context(
     if context.is_null(){
         return Err(EglError::CreateContextFailed);
     }
-    crate::log!("===================== crreate elg context success");
+    crate::log!("create elg context success");
     return Ok((context, config, display));
 }
