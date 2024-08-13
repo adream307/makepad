@@ -212,7 +212,11 @@ pub fn debug_jsobject(obj: &JsObject, obj_name: &str) -> napi_ohos::Result<()> {
 
 #[derive(Debug)]
 pub enum FromOhosMessage {
-    Init(OpenHarmonyInitOptions),
+    Init {
+        option: OpenHarmonyInitOptions,
+        raw_env: napi_ohos::sys::napi_env,
+        res_mgr: napi_ohos::sys::napi_value
+    },
     SurfaceChanged {
         window: *mut c_void,
         width: i32,
