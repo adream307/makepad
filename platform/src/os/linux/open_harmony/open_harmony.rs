@@ -3,7 +3,7 @@ use {
         super::{gl_sys, select_timer::SelectTimers},
         oh_callbacks::*,
         oh_media::CxOpenHarmonyMedia,
-        raw_file::*
+        raw_file::*,
     },
     crate::{
         cx::{Cx, OpenHarmonyParams, OsType},
@@ -15,11 +15,11 @@ use {
         os::cx_native::EventFlow,
         pass::{CxPassParent, PassClearColor, PassClearDepth, PassId},
         thread::SignalToUI,
-        window::CxWindowPool
+        window::CxWindowPool,
     },
     napi_derive_ohos::napi,
     napi_ohos::{Env, JsObject},
-    std::{ffi::CString, os::raw::c_void, sync::mpsc, time::Instant, fs::File, rc::Rc, io::prelude::*},
+    std::{ffi::CString, os::raw::c_void, rc::Rc, sync::mpsc, time::Instant},
 };
 
 #[napi]
@@ -30,9 +30,13 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::R
     );
     let (raw_env, res_mgr) = match RawFileMgr::get_resource_manager(&env) {
         Some((raw_env, res_mgr)) => (raw_env, res_mgr),
-        None => (std::ptr::null_mut(), std::ptr::null_mut())
+        None => (std::ptr::null_mut(), std::ptr::null_mut()),
     };
-    send_from_ohos_message(FromOhosMessage::Init{option: init_opts, raw_env, res_mgr});
+    send_from_ohos_message(FromOhosMessage::Init {
+        option: init_opts,
+        raw_env,
+        res_mgr,
+    });
     Ok(())
 }
 
@@ -156,7 +160,11 @@ impl Cx {
                 }) => {
                     loop {
                         match from_ohos_rx.recv() {
-                            Ok(FromOhosMessage::Init{option, raw_env, res_mgr }) => {
+                            Ok(FromOhosMessage::Init {
+                                option,
+                                raw_env,
+                                res_mgr,
+                            }) => {
                                 self.os.dpi_factor = option.display_density;
                                 self.os.raw_env = raw_env;
                                 self.os.res_mgr = res_mgr;
@@ -171,7 +179,12 @@ impl Cx {
                         }
                     }
                     self.os.display_size = dvec2(width as f64, height as f64);
-                    crate::log!("handle surface created, width={}, height={}, display_density={}",width,height,self.os.dpi_factor);
+                    crate::log!(
+                        "handle surface created, width={}, height={}, display_density={}",
+                        width,
+                        height,
+                        self.os.dpi_factor
+                    );
                     return window;
                 }
                 _ => {}
@@ -259,11 +272,11 @@ impl Cx {
 
     pub fn ohos_load_dependencies(&mut self) {
         let mut raw_mgr = RawFileMgr::new(self.os.raw_env, self.os.res_mgr);
-        for (path,dep) in &mut self.dependencies{
+        for (path, dep) in &mut self.dependencies {
             let mut buffer = Vec::<u8>::new();
-            if let Ok(_) = raw_mgr.read_to_end(path, & mut buffer){
+            if let Ok(_) = raw_mgr.read_to_end(path, &mut buffer) {
                 dep.data = Some(Ok(Rc::new(buffer)));
-            }else {
+            } else {
                 dep.data = Some(Err("read_to_end failed".to_string()));
             }
         }
@@ -439,8 +452,8 @@ impl Default for CxOs {
             media: Default::default(),
             quit: false,
             timers: SelectTimers::new(),
-            raw_env:std::ptr::null_mut(),
-            res_mgr:std::ptr::null_mut(),
+            raw_env: std::ptr::null_mut(),
+            res_mgr: std::ptr::null_mut(),
             start_time: Instant::now(),
             display: None,
         }
@@ -448,57 +461,57 @@ impl Default for CxOs {
 }
 
 impl CxOhosDisplay {
-    unsafe fn destroy_surface(&mut self) {
-        (self.libegl.eglMakeCurrent.unwrap())(
-            self.egl_display,
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-        );
-        (self.libegl.eglDestroySurface.unwrap())(self.egl_display, self.surface);
-        self.surface = std::ptr::null_mut();
-    }
+    //unsafe fn destroy_surface(&mut self) {
+    //    (self.libegl.eglMakeCurrent.unwrap())(
+    //        self.egl_display,
+    //        std::ptr::null_mut(),
+    //        std::ptr::null_mut(),
+    //        std::ptr::null_mut(),
+    //    );
+    //    (self.libegl.eglDestroySurface.unwrap())(self.egl_display, self.surface);
+    //    self.surface = std::ptr::null_mut();
+    //}
 
-    unsafe fn update_surface(&mut self, window: *mut c_void) {
-        if !self.window.is_null() {
-            //todo release window
-        }
-        self.window = window;
-        if self.surface.is_null() == false {
-            self.destroy_surface();
-        }
+    //unsafe fn update_surface(&mut self, window: *mut c_void) {
+    //    if !self.window.is_null() {
+    //        //todo release window
+    //    }
+    //    self.window = window;
+    //    if self.surface.is_null() == false {
+    //        self.destroy_surface();
+    //    }
 
-        let win_attr = vec![EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE];
-        self.surface = (self.libegl.eglCreateWindowSurface.unwrap())(
-            self.egl_display,
-            self.egl_config,
-            self.window as _,
-            win_attr.as_ptr() as _,
-        );
+    //    let win_attr = vec![EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE];
+    //    self.surface = (self.libegl.eglCreateWindowSurface.unwrap())(
+    //        self.egl_display,
+    //        self.egl_config,
+    //        self.window as _,
+    //        win_attr.as_ptr() as _,
+    //    );
 
-        if self.surface.is_null() {
-            let err_code = unsafe { (self.libegl.eglGetError.unwrap())() };
-            crate::log!("eglCreateWindowSurface error code:{}", err_code);
-        }
+    //    if self.surface.is_null() {
+    //        let err_code = unsafe { (self.libegl.eglGetError.unwrap())() };
+    //        crate::log!("eglCreateWindowSurface error code:{}", err_code);
+    //    }
 
-        assert!(!self.surface.is_null());
+    //    assert!(!self.surface.is_null());
 
-        self.make_current();
-    }
+    //    self.make_current();
+    //}
 
     unsafe fn swap_buffers(&mut self) {
         (self.libegl.eglSwapBuffers.unwrap())(self.egl_display, self.surface);
     }
 
-    unsafe fn make_current(&mut self) {
-        if (self.libegl.eglMakeCurrent.unwrap())(
-            self.egl_display,
-            self.surface,
-            self.surface,
-            self.egl_context,
-        ) == 0
-        {
-            panic!();
-        }
-    }
+    //unsafe fn make_current(&mut self) {
+    //    if (self.libegl.eglMakeCurrent.unwrap())(
+    //        self.egl_display,
+    //        self.surface,
+    //        self.surface,
+    //        self.egl_context,
+    //    ) == 0
+    //    {
+    //        panic!();
+    //    }
+    //}
 }
