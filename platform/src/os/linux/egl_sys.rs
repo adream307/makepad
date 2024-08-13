@@ -509,8 +509,6 @@ pub unsafe fn create_egl_context(
 pub unsafe  fn create_egl_context(
     egl: &mut LibEgl
 ) -> Result<(EGLContext, EGLConfig, EGLDisplay), EglError> {
-    use napi_ohos::sys::PropertyAttributes::configurable;
-
     let display = (egl.eglGetDisplay.unwrap())(null_mut());
     if display == null_mut() {
         return Err(EglError::NoDisplay);
@@ -532,7 +530,7 @@ pub unsafe  fn create_egl_context(
         EGL_OPENGL_ES2_BIT,
         EGL_NONE
     ];
-    let mut available_cfgs: Vec<EGLConfig> = vec![null_mut(); 32];
+    let available_cfgs: Vec<EGLConfig> = vec![null_mut(); 32];
     let mut cfg_count = 0;
 
     if (egl.eglChooseConfig.unwrap())(
