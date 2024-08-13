@@ -47,7 +47,7 @@ impl RawFileMgr {
             crate::log!("call OH_ResourceManager_InitNativeResourceManager failed");
         }
         Self{
-            native_resource_manager:std::ptr::null_mut()
+            native_resource_manager
         }
     }
 
