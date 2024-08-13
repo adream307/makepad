@@ -146,6 +146,7 @@ impl RawFileMgr {
         }
         let file_length = unsafe { OH_ResourceManager_GetRawFileSize(raw_file) };
         if file_length <= 0 {
+            let _ = unsafe { OH_ResourceManager_CloseRawFile(raw_file)};
             buf.clear();
             return Ok(0);
         }
