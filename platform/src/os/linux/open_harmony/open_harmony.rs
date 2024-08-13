@@ -22,80 +22,191 @@ use {
     std::{ffi::CString, os::raw::c_void, sync::mpsc, time::Instant},
 };
 
+fn to_string(val_type : &napi_ohos::sys::napi_valuetype) -> String {
+    match *val_type {
+        napi_ohos::sys::ValueType::napi_undefined => "undefined".to_string(),
+        napi_ohos::sys::ValueType::napi_null => "null".to_string(),
+        napi_ohos::sys::ValueType::napi_boolean => "boolean".to_string(),
+        napi_ohos::sys::ValueType::napi_number => "number".to_string(),
+        napi_ohos::sys::ValueType::napi_string => "string".to_string(),
+        napi_ohos::sys::ValueType::napi_symbol => "symbol".to_string(),
+        napi_ohos::sys::ValueType::napi_object => "object".to_string(),
+        napi_ohos::sys::ValueType::napi_function => "function".to_string(),
+        napi_ohos::sys::ValueType::napi_external => "external".to_string(),
+        _ => "undefined".to_string()
+    }
+}
+
+fn get_resource_manager(env: &Env) -> Option<(napi_ohos::sys::napi_env, napi_ohos::sys::napi_value)> {
+    let raw_env = env.raw();
+    let mut global_obj = std::ptr::null_mut();
+    let napi_status =  unsafe { napi_ohos::sys::napi_get_global(raw_env, & mut global_obj)};
+    if napi_status != napi_ohos::sys::Status::napi_ok {
+        crate::log!("get global from env failed, error code = {}",napi_status);
+        return None;
+    }
+    crate::log!("get global from env success");
+
+    let mut global_this = std::ptr::null_mut();
+    let napi_status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global_obj, c"globalThis".as_ptr(), & mut global_this )};
+    if napi_status != napi_ohos::sys::Status::napi_ok {
+        crate::log!("get globalThis from global failed, error code = {}",napi_status);
+        return None;
+    }
+    let mut napi_type: napi_ohos::sys::napi_valuetype = 0;
+    let _ = unsafe { napi_ohos::sys::napi_typeof(raw_env,global_this,& mut napi_type) };
+    if napi_type != napi_ohos::sys::ValueType::napi_object {
+        crate::log!("globalThis expect to be object, current data type = {}",to_string(&napi_type));
+        return None;
+    }
+    crate::log!("get globalThis from global success");
+
+    let mut get_context_fn = std::ptr::null_mut();
+    let napi_status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global_this, c"getContext".as_ptr(), & mut get_context_fn)};
+    if napi_status != napi_ohos::sys::Status::napi_ok {
+        crate::log!("get getContext from globalThis failed, error code = {}",napi_status);
+        return None;
+    }
+    let _ = unsafe { napi_ohos::sys::napi_typeof(raw_env,get_context_fn,& mut napi_type) };
+    napi_type = 0;
+    if napi_type != napi_ohos::sys::ValueType::napi_function {
+        crate::log!("globalThis expect to be function, current data type = {}",to_string(&napi_type));
+        return None;
+    }
+    crate::log!("get getContext function success");
+
+    let mut ctx_recv = std::ptr::null_mut();
+    unsafe { let _ = sys::napi_get_undefined(raw_env, &mut ctx_recv); }
+    let mut get_context_result = std::ptr::null_mut();
+    let napi_status = unsafe {napi_ohos::sys::napi_call_function(raw_env, ctx_recv, get_context_fn, 0, std::ptr::null(), & mut get_context_result)};
+    if napi_status != napi_ohos::sys::Status::napi_ok {
+        crate::log!("call getContext() failed, error code = {}",napi_status);
+        return None;
+    }
+    let _ = unsafe { napi_ohos::sys::napi_typeof(raw_env,get_context_result,& mut napi_type) };
+    if napi_type != napi_ohos::sys::ValueType::napi_object {
+        crate::log!("getContext() result expect to be object, current data type = {}",to_string(&napi_type));
+        return None;
+    }
+    crate::log!("call getContext() succcess");
+
+    let mut res_mgr = std::ptr::null_mut();
+    let napi_status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, get_context_result, c"resourceManager".as_ptr(), & mut res_mgr)};
+    if napi_status != napi_ohos::sys::Status::napi_ok {
+        crate::log!("get  resourceManager failed, error code = {}", napi_status);
+        return None;
+    }
+    let _ = unsafe { napi_ohos::sys::napi_typeof(raw_env,res_mgr,& mut napi_type) };
+    if napi_type == napi_ohos::sys::ValueType::napi_undefined {
+        crate::log!("resourceManager could not be undefined, error code");
+        return None;
+    }
+    return Some((raw_env, res_mgr));
+}
+
 #[napi]
 pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()> {
     crate::log!(
         "call initMakePad from XComponent.onLoad, display_density = {}",
         init_opts.display_density
     );
-    let raw_env = env.raw();
-    let mut global = std::ptr::null_mut();
-    let mut status =  unsafe { napi_ohos::sys::napi_get_global(raw_env, & mut global)};
-    if status == 0 {
-        crate::log!("========== get global");
-        let mut global_this = std::ptr::null_mut();
-        status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global, c"globalThis".as_ptr(), & mut global_this )};
-        if status == 0 {
-            crate::log!("============= get globalThis");
-            let mut global_type: napi_ohos::sys::napi_valuetype = 0;
-            status = unsafe { napi_ohos::sys::napi_typeof(raw_env,global_this,& mut global_type) };
-            if status == 0 {
-                crate::log!("======== globalThis, type = {}", global_type);
-            }
-            let mut this_ctx = std::ptr::null_mut();
-            status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global_this, c"getContext".as_ptr(), & mut this_ctx)};
-            if status == 0 {
-                crate::log!("========= getContext");
-                let mut ctx_type: napi_ohos::sys::napi_valuetype = 0;
-                status = unsafe { napi_ohos::sys::napi_typeof(raw_env,this_ctx,& mut ctx_type) };
-                if status==0 {
-                    crate::log!("===== globalThis.getContext type = {}", ctx_type);
-                }
-                let mut ctx_recv = std::ptr::null_mut();
-                unsafe { sys::napi_get_undefined(raw_env, &mut ctx_recv) };
-                let mut call_this = std::ptr::null_mut();
-                status = unsafe {napi_ohos::sys::napi_call_function(raw_env, ctx_recv, this_ctx, 0, std::ptr::null(), & mut call_this)};
-                if status == 0 {
-                    crate::log!("==== call getContext success");
-                    status = unsafe { napi_ohos::sys::napi_typeof(raw_env,call_this,& mut ctx_type) };
-                    if status==0 {
-                        crate::log!("===== globalThis.getContext() type = {}", ctx_type);
+
+    if let Some((raw_env, res_mgr)) = get_resource_manager(&env) {
+        let native_res_mgr = unsafe { OH_ResourceManager_InitNativeResourceManager(raw_env, res_mgr)};
+        if native_res_mgr.is_null()==false {
+            crate::log!("OH_ResourceManager_InitNativeResourceManager success");
+                let file_data = unsafe {
+                    let raw_file = OH_ResourceManager_OpenRawFile(native_res_mgr, c"hello.txt".as_ptr());
+                    let file_length = OH_ResourceManager_GetRawFileSize(raw_file);
+                    //let data = Vec::<u8>::with_capacity(file_length.try_into().unwrap());
+                    let data = vec![0 as u8; file_length.try_into().unwrap()];
+                    OH_ResourceManager_ReadRawFile(raw_file,data.as_ptr() as * mut ::core::ffi::c_void, file_length.try_into().unwrap());
+                    if let Ok(file_msg) = String::from_utf8(data) {
+                        file_msg
+                    } else {
+                        "".to_string()
                     }
+                };
+                crate::log!("hello.txt file size = {}",file_data);
 
-                    let mut res_mgr = std::ptr::null_mut();
-                    status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, call_this, c"resourceManager".as_ptr(), & mut res_mgr)};
-                    if status == 0 {
-                        crate::log!("======= get resource manager");
-                        let native_res_mgr = unsafe { OH_ResourceManager_InitNativeResourceManager(raw_env, res_mgr)};
-                        if native_res_mgr.is_null()==false {
-                            crate::log!("OH_ResourceManager_InitNativeResourceManager success");
-                            let file_data = unsafe {
-                                let raw_file = OH_ResourceManager_OpenRawFile(native_res_mgr, c"hello.txt".as_ptr());
-                                let file_length = OH_ResourceManager_GetRawFileSize(raw_file);
-                                //let data = Vec::<u8>::with_capacity(file_length.try_into().unwrap());
-                                let data = vec![0 as u8; file_length.try_into().unwrap()];
-                                OH_ResourceManager_ReadRawFile(raw_file,data.as_ptr() as * mut ::core::ffi::c_void, file_length.try_into().unwrap());
-                                if let Ok(file_msg) = String::from_utf8(data) {
-                                    file_msg
-                                } else {
-                                    "".to_string()
-                                }
-                            };
-                            crate::log!("hello.txt file size = {}",file_data);
-
-                        } else {
-                            crate::log!("OH_ResourceManager_InitNativeResourceManager failed");
-                        }
-                    }else{
-                        crate::log!("======== get resouce manager failed, error code = {}",status);
-                    }
-                }
-
-            } else{
-                crate::log!("========= get context failed, error code = {}",status);
-            }
+        } else {
+            crate::log!("OH_ResourceManager_InitNativeResourceManager failed");
         }
+
+    }else{
+        crate::log!("get resouceManager failed");
     }
+
+    // let raw_env = env.raw();
+    // let mut global_obj = std::ptr::null_mut();
+    // let mut global_this = std::ptr::null_mut();
+    // let mut napi_type: napi_ohos::sys::napi_valuetype = 0;
+    // let mut napi_status =  unsafe { napi_ohos::sys::napi_get_global(raw_env, & mut global_obj)};
+
+    // if napi_status == 0 {
+    //     crate::log!("init_makepad: get global oject success");
+    //     napi_status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global, c"globalThis".as_ptr(), & mut global_this )};
+    //     if napi_status == 0 {
+    //         crate::log!("init_makepad: globalThis success");
+    //         napi_status = unsafe { napi_ohos::sys::napi_typeof(raw_env,global_this,& mut napi_type) };
+
+    //         if napi_status == 0 {
+    //             crate::log!("======== globalThis, type = {}", global_type);
+    //         }
+    //         let mut this_ctx = std::ptr::null_mut();
+    //         napi_status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global_this, c"getContext".as_ptr(), & mut this_ctx)};
+    //         if napi_status == 0 {
+    //             crate::log!("========= getContext");
+    //             let mut ctx_type: napi_ohos::sys::napi_valuetype = 0;
+    //             napi_status = unsafe { napi_ohos::sys::napi_typeof(raw_env,this_ctx,& mut ctx_type) };
+    //             if napi_status==0 {
+    //                 crate::log!("===== globalThis.getContext type = {}", ctx_type);
+    //             }
+    //             let mut ctx_recv = std::ptr::null_mut();
+    //             unsafe { sys::napi_get_undefined(raw_env, &mut ctx_recv) };
+    //             let mut call_this = std::ptr::null_mut();
+    //             napi_status = unsafe {napi_ohos::sys::napi_call_function(raw_env, ctx_recv, this_ctx, 0, std::ptr::null(), & mut call_this)};
+    //             if napi_status == 0 {
+    //                 crate::log!("==== call getContext success");
+    //                 napi_status = unsafe { napi_ohos::sys::napi_typeof(raw_env,call_this,& mut ctx_type) };
+    //                 if napi_status==0 {
+    //                     crate::log!("===== globalThis.getContext() type = {}", ctx_type);
+    //                 }
+
+    //                 let mut res_mgr = std::ptr::null_mut();
+    //                 napi_status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, call_this, c"resourceManager".as_ptr(), & mut res_mgr)};
+    //                 if napi_status == 0 {
+    //                     crate::log!("======= get resource manager");
+    //                     let native_res_mgr = unsafe { OH_ResourceManager_InitNativeResourceManager(raw_env, res_mgr)};
+    //                     if native_res_mgr.is_null()==false {
+    //                         crate::log!("OH_ResourceManager_InitNativeResourceManager success");
+    //                         let file_data = unsafe {
+    //                             let raw_file = OH_ResourceManager_OpenRawFile(native_res_mgr, c"hello.txt".as_ptr());
+    //                             let file_length = OH_ResourceManager_GetRawFileSize(raw_file);
+    //                             //let data = Vec::<u8>::with_capacity(file_length.try_into().unwrap());
+    //                             let data = vec![0 as u8; file_length.try_into().unwrap()];
+    //                             OH_ResourceManager_ReadRawFile(raw_file,data.as_ptr() as * mut ::core::ffi::c_void, file_length.try_into().unwrap());
+    //                             if let Ok(file_msg) = String::from_utf8(data) {
+    //                                 file_msg
+    //                             } else {
+    //                                 "".to_string()
+    //                             }
+    //                         };
+    //                         crate::log!("hello.txt file size = {}",file_data);
+
+    //                     } else {
+    //                         crate::log!("OH_ResourceManager_InitNativeResourceManager failed");
+    //                     }
+    //                 }else{
+    //                     crate::log!("======== get resouce manager failed, error code = {}",napi_status);
+    //                 }
+    //             }
+
+    //         } else{
+    //             crate::log!("========= get context failed, error code = {}",napi_status);
+    //         }
+    //     }
+    // }
     send_from_ohos_message(FromOhosMessage::Init(init_opts));
     Ok(())
 }
