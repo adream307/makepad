@@ -67,10 +67,10 @@ fn get_resource_manager(env: &Env) -> Option<(napi_ohos::sys::napi_env, napi_oho
         crate::log!("get getContext from globalThis failed, error code = {}",napi_status);
         return None;
     }
-    let _ = unsafe { napi_ohos::sys::napi_typeof(raw_env,get_context_fn,& mut napi_type) };
     napi_type = 0;
+    let _ = unsafe { napi_ohos::sys::napi_typeof(raw_env,get_context_fn,& mut napi_type) };
     if napi_type != napi_ohos::sys::ValueType::napi_function {
-        crate::log!("globalThis expect to be function, current data type = {}",to_string(&napi_type));
+        crate::log!("getContext expect to be function, current data type = {}",to_string(&napi_type));
         return None;
     }
     crate::log!("get getContext function success");
@@ -83,6 +83,7 @@ fn get_resource_manager(env: &Env) -> Option<(napi_ohos::sys::napi_env, napi_oho
         crate::log!("call getContext() failed, error code = {}",napi_status);
         return None;
     }
+    napi_type = 0;
     let _ = unsafe { napi_ohos::sys::napi_typeof(raw_env,get_context_result,& mut napi_type) };
     if napi_type != napi_ohos::sys::ValueType::napi_object {
         crate::log!("getContext() result expect to be object, current data type = {}",to_string(&napi_type));
