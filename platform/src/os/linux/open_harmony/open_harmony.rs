@@ -102,6 +102,7 @@ fn get_resource_manager(env: &Env) -> Option<(napi_ohos::sys::napi_env, napi_oho
         crate::log!("resourceManager could not be undefined, error code");
         return None;
     }
+    crate::log!("get resourceManager success");
     return Some((raw_env, res_mgr));
 }
 
@@ -111,104 +112,37 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::R
         "call initMakePad from XComponent.onLoad, display_density = {}",
         init_opts.display_density
     );
+    let (raw_env, res_mgr) = match get_resource_manager(&env) {
+        Some((raw_env, res_mgr)) => (raw_env, res_mgr),
+        None => (std::ptr::null_mut(), std::ptr::null_mut())
+    };
 
-    if let Some((raw_env, res_mgr)) = get_resource_manager(&env) {
-        let native_res_mgr = unsafe { OH_ResourceManager_InitNativeResourceManager(raw_env, res_mgr)};
-        if native_res_mgr.is_null()==false {
-            crate::log!("OH_ResourceManager_InitNativeResourceManager success");
-                let file_data = unsafe {
-                    let raw_file = OH_ResourceManager_OpenRawFile(native_res_mgr, c"hello.txt".as_ptr());
-                    let file_length = OH_ResourceManager_GetRawFileSize(raw_file);
-                    //let data = Vec::<u8>::with_capacity(file_length.try_into().unwrap());
-                    let data = vec![0 as u8; file_length.try_into().unwrap()];
-                    OH_ResourceManager_ReadRawFile(raw_file,data.as_ptr() as * mut ::core::ffi::c_void, file_length.try_into().unwrap());
-                    if let Ok(file_msg) = String::from_utf8(data) {
-                        file_msg
-                    } else {
-                        "".to_string()
-                    }
-                };
-                crate::log!("hello.txt file size = {}",file_data);
-
-        } else {
-            crate::log!("OH_ResourceManager_InitNativeResourceManager failed");
-        }
-
-    }else{
-        crate::log!("get resouceManager failed");
-    }
-
-    // let raw_env = env.raw();
-    // let mut global_obj = std::ptr::null_mut();
-    // let mut global_this = std::ptr::null_mut();
-    // let mut napi_type: napi_ohos::sys::napi_valuetype = 0;
-    // let mut napi_status =  unsafe { napi_ohos::sys::napi_get_global(raw_env, & mut global_obj)};
-
-    // if napi_status == 0 {
-    //     crate::log!("init_makepad: get global oject success");
-    //     napi_status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global, c"globalThis".as_ptr(), & mut global_this )};
-    //     if napi_status == 0 {
-    //         crate::log!("init_makepad: globalThis success");
-    //         napi_status = unsafe { napi_ohos::sys::napi_typeof(raw_env,global_this,& mut napi_type) };
-
-    //         if napi_status == 0 {
-    //             crate::log!("======== globalThis, type = {}", global_type);
-    //         }
-    //         let mut this_ctx = std::ptr::null_mut();
-    //         napi_status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, global_this, c"getContext".as_ptr(), & mut this_ctx)};
-    //         if napi_status == 0 {
-    //             crate::log!("========= getContext");
-    //             let mut ctx_type: napi_ohos::sys::napi_valuetype = 0;
-    //             napi_status = unsafe { napi_ohos::sys::napi_typeof(raw_env,this_ctx,& mut ctx_type) };
-    //             if napi_status==0 {
-    //                 crate::log!("===== globalThis.getContext type = {}", ctx_type);
-    //             }
-    //             let mut ctx_recv = std::ptr::null_mut();
-    //             unsafe { sys::napi_get_undefined(raw_env, &mut ctx_recv) };
-    //             let mut call_this = std::ptr::null_mut();
-    //             napi_status = unsafe {napi_ohos::sys::napi_call_function(raw_env, ctx_recv, this_ctx, 0, std::ptr::null(), & mut call_this)};
-    //             if napi_status == 0 {
-    //                 crate::log!("==== call getContext success");
-    //                 napi_status = unsafe { napi_ohos::sys::napi_typeof(raw_env,call_this,& mut ctx_type) };
-    //                 if napi_status==0 {
-    //                     crate::log!("===== globalThis.getContext() type = {}", ctx_type);
+    // if let Some((raw_env, res_mgr)) = get_resource_manager(&env) {
+    //     let native_res_mgr = unsafe { OH_ResourceManager_InitNativeResourceManager(raw_env, res_mgr)};
+    //     if native_res_mgr.is_null()==false {
+    //         crate::log!("OH_ResourceManager_InitNativeResourceManager success");
+    //             let file_data = unsafe {
+    //                 let raw_file = OH_ResourceManager_OpenRawFile(native_res_mgr, c"hello.txt".as_ptr());
+    //                 let file_length = OH_ResourceManager_GetRawFileSize(raw_file);
+    //                 //let data = Vec::<u8>::with_capacity(file_length.try_into().unwrap());
+    //                 let data = vec![0 as u8; file_length.try_into().unwrap()];
+    //                 OH_ResourceManager_ReadRawFile(raw_file,data.as_ptr() as * mut ::core::ffi::c_void, file_length.try_into().unwrap());
+    //                 if let Ok(file_msg) = String::from_utf8(data) {
+    //                     file_msg
+    //                 } else {
+    //                     "".to_string()
     //                 }
+    //             };
+    //             crate::log!("hello.txt file size = {}",file_data);
 
-    //                 let mut res_mgr = std::ptr::null_mut();
-    //                 napi_status = unsafe { napi_ohos::sys::napi_get_named_property(raw_env, call_this, c"resourceManager".as_ptr(), & mut res_mgr)};
-    //                 if napi_status == 0 {
-    //                     crate::log!("======= get resource manager");
-    //                     let native_res_mgr = unsafe { OH_ResourceManager_InitNativeResourceManager(raw_env, res_mgr)};
-    //                     if native_res_mgr.is_null()==false {
-    //                         crate::log!("OH_ResourceManager_InitNativeResourceManager success");
-    //                         let file_data = unsafe {
-    //                             let raw_file = OH_ResourceManager_OpenRawFile(native_res_mgr, c"hello.txt".as_ptr());
-    //                             let file_length = OH_ResourceManager_GetRawFileSize(raw_file);
-    //                             //let data = Vec::<u8>::with_capacity(file_length.try_into().unwrap());
-    //                             let data = vec![0 as u8; file_length.try_into().unwrap()];
-    //                             OH_ResourceManager_ReadRawFile(raw_file,data.as_ptr() as * mut ::core::ffi::c_void, file_length.try_into().unwrap());
-    //                             if let Ok(file_msg) = String::from_utf8(data) {
-    //                                 file_msg
-    //                             } else {
-    //                                 "".to_string()
-    //                             }
-    //                         };
-    //                         crate::log!("hello.txt file size = {}",file_data);
-
-    //                     } else {
-    //                         crate::log!("OH_ResourceManager_InitNativeResourceManager failed");
-    //                     }
-    //                 }else{
-    //                     crate::log!("======== get resouce manager failed, error code = {}",napi_status);
-    //                 }
-    //             }
-
-    //         } else{
-    //             crate::log!("========= get context failed, error code = {}",napi_status);
-    //         }
+    //     } else {
+    //         crate::log!("OH_ResourceManager_InitNativeResourceManager failed");
     //     }
+
+    // }else{
+    //     crate::log!("get resouceManager failed");
     // }
-    send_from_ohos_message(FromOhosMessage::Init(init_opts));
+    send_from_ohos_message(FromOhosMessage::Init{option: init_opts, raw_env, res_mgr});
     Ok(())
 }
 
@@ -332,12 +266,14 @@ impl Cx {
                 }) => {
                     loop {
                         match from_ohos_rx.recv() {
-                            Ok(FromOhosMessage::Init(params)) => {
-                                self.os.dpi_factor = params.display_density;
+                            Ok(FromOhosMessage::Init{option, raw_env, res_mgr }) => {
+                                self.os.dpi_factor = option.display_density;
+                                self.os.raw_env = raw_env;
+                                self.os.res_mgr = res_mgr;
                                 self.os_type = OsType::OpenHarmony(OpenHarmonyParams {
-                                    device_type: params.device_type,
-                                    os_full_name: params.os_full_name,
-                                    display_density: params.display_density,
+                                    device_type: option.device_type,
+                                    os_full_name: option.os_full_name,
+                                    display_density: option.display_density,
                                 });
                                 break;
                             }
@@ -587,6 +523,8 @@ pub struct CxOs {
     pub media: CxOpenHarmonyMedia,
     pub quit: bool,
     pub timers: SelectTimers,
+    pub raw_env: napi_ohos::sys::napi_env,
+    pub res_mgr: napi_ohos::sys::napi_value,
     pub(crate) start_time: Instant,
     pub(crate) display: Option<CxOhosDisplay>,
 }
@@ -599,6 +537,8 @@ impl Default for CxOs {
             media: Default::default(),
             quit: false,
             timers: SelectTimers::new(),
+            raw_env:std::ptr::null_mut(),
+            res_mgr:std::ptr::null_mut(),
             start_time: Instant::now(),
             display: None,
         }
