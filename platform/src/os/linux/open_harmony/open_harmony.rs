@@ -208,7 +208,6 @@ impl Cx {
             init_globals(ohos_tx);
 
             register_xcomponent_callbacks(&env, &xcomponent);
-            register_vsync_callback(from_ohos_tx);
 
             std::thread::spawn(move || {
                 let mut cx = startup();
@@ -263,6 +262,7 @@ impl Cx {
                     window,
                 });
 
+                register_vsync_callback(from_ohos_tx);
                 cx.main_loop(from_ohos_rx);
                 //TODO, destroy surface
             });
