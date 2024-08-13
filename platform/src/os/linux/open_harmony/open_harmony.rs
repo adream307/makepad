@@ -3,7 +3,6 @@ use {
         super::{gl_sys, select_timer::SelectTimers},
         oh_callbacks::*,
         oh_media::CxOpenHarmonyMedia,
-        oh_sys::*,
         raw_file::*
     },
     crate::{
@@ -19,7 +18,7 @@ use {
         window::CxWindowPool
     },
     napi_derive_ohos::napi,
-    napi_ohos::{bindgen_prelude::*, Env, JsObject},
+    napi_ohos::{Env, JsObject},
     std::{ffi::CString, os::raw::c_void, sync::mpsc, time::Instant},
 };
 
@@ -29,36 +28,10 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::R
         "call initMakePad from XComponent.onLoad, display_density = {}",
         init_opts.display_density
     );
-    let (raw_env, res_mgr) = match OhRawFile::get_resource_manager(&env) {
+    let (raw_env, res_mgr) = match RawFileMgr::get_resource_manager(&env) {
         Some((raw_env, res_mgr)) => (raw_env, res_mgr),
         None => (std::ptr::null_mut(), std::ptr::null_mut())
     };
-
-    // if let Some((raw_env, res_mgr)) = get_resource_manager(&env) {
-    //     let native_res_mgr = unsafe { OH_ResourceManager_InitNativeResourceManager(raw_env, res_mgr)};
-    //     if native_res_mgr.is_null()==false {
-    //         crate::log!("OH_ResourceManager_InitNativeResourceManager success");
-    //             let file_data = unsafe {
-    //                 let raw_file = OH_ResourceManager_OpenRawFile(native_res_mgr, c"hello.txt".as_ptr());
-    //                 let file_length = OH_ResourceManager_GetRawFileSize(raw_file);
-    //                 //let data = Vec::<u8>::with_capacity(file_length.try_into().unwrap());
-    //                 let data = vec![0 as u8; file_length.try_into().unwrap()];
-    //                 OH_ResourceManager_ReadRawFile(raw_file,data.as_ptr() as * mut ::core::ffi::c_void, file_length.try_into().unwrap());
-    //                 if let Ok(file_msg) = String::from_utf8(data) {
-    //                     file_msg
-    //                 } else {
-    //                     "".to_string()
-    //                 }
-    //             };
-    //             crate::log!("hello.txt file size = {}",file_data);
-
-    //     } else {
-    //         crate::log!("OH_ResourceManager_InitNativeResourceManager failed");
-    //     }
-
-    // }else{
-    //     crate::log!("get resouceManager failed");
-    // }
     send_from_ohos_message(FromOhosMessage::Init{option: init_opts, raw_env, res_mgr});
     Ok(())
 }
@@ -228,6 +201,14 @@ impl Cx {
                 let mut cx = startup();
                 let mut libegl = LibEgl::try_load().expect("can't load LibEGL");
                 let window = cx.handle_surface_created(&from_ohos_rx);
+
+                let mut mgr = RawFileMgr::new(cx.os.raw_env,cx.os.res_mgr);
+                let mut buffer = Vec::<u8>::new();
+                if let Ok(_) = mgr.read_to_end("hello.txt", & mut buffer) {
+                    if let Ok(file_msg) = String::from_utf8(buffer){
+                        crate::log!("read from rawfile,msg = {}",file_msg);
+                    }
+                }
 
                 let (egl_context, egl_config, egl_display) = unsafe {
                     egl_sys::create_egl_context(&mut libegl).expect("Can't create EGL context")
