@@ -139,7 +139,8 @@ impl RawFileMgr {
         if self.native_resource_manager.is_null() {
             return Err(Error::new(ErrorKind::NotConnected,"OH_ResourceManager_InitNativeResourceManager failed"));
         }
-        let raw_file = unsafe { OH_ResourceManager_OpenRawFile(self.native_resource_manager, path.as_ref().as_ptr()) };
+        let path_cstring = std::ffi::CString::new(path.as_ref())?;
+        let raw_file = unsafe { OH_ResourceManager_OpenRawFile(self.native_resource_manager, path_cstring.as_ptr()) };
         if raw_file.is_null() {
             let msg = format!("open file {} failed", path.as_ref());
             return Err(Error::new(ErrorKind::NotConnected,msg));
