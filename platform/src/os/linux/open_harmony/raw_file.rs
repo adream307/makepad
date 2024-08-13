@@ -13,6 +13,7 @@ use napi_ohos::sys::{
     napi_call_function,
     napi_get_undefined
 };
+use std::io::{Error, Result, ErrorKind};
 use napi_ohos::Env;
 
 #[repr(C)]
@@ -35,11 +36,21 @@ extern "C" {
     fn OH_ResourceManager_ReadRawFile (rawFile: * const RawFile, buf: * mut ::core::ffi::c_void, length: ::core::ffi::c_ulong) -> ::core::ffi::c_int;
 }
 
-pub struct OhRawFile {
-
+pub struct RawFileMgr {
+    native_resource_manager: *mut NativeResourceManager,
 }
 
-impl OhRawFile {
+impl RawFileMgr {
+    pub fn new(raw_env:napi_env, res_mgr:napi_value)->RawFileMgr {
+        let native_resource_manager = unsafe { OH_ResourceManager_InitNativeResourceManager(raw_env,res_mgr) };
+        if native_resource_manager.is_null() {
+            crate::log!("call OH_ResourceManager_InitNativeResourceManager failed");
+        }
+        Self{
+            native_resource_manager:std::ptr::null_mut()
+        }
+    }
+
     fn to_string(val_type : &napi_valuetype) -> String {
         match *val_type {
             ValueType::napi_undefined => "undefined".to_string(),
@@ -122,6 +133,35 @@ impl OhRawFile {
         }
         crate::log!("get resourceManager success");
         return Some((raw_env, res_mgr));
+    }
+
+    pub fn read_to_end<S: AsRef<str>>(&mut self,path: S, buf: &mut Vec<u8>) -> Result<usize> {
+        if self.native_resource_manager.is_null() {
+            return Err(Error::new(ErrorKind::NotConnected,"OH_ResourceManager_InitNativeResourceManager failed"));
+        }
+        let raw_file = unsafe { OH_ResourceManager_OpenRawFile(self.native_resource_manager, path.as_ref().as_ptr()) };
+        if raw_file.is_null() {
+            let msg = format!("open file {} failed", path.as_ref());
+            return Err(Error::new(ErrorKind::NotConnected,msg));
+        }
+        let file_length = unsafe { OH_ResourceManager_GetRawFileSize(raw_file) };
+        if file_length <= 0 {
+            buf.clear();
+            return Ok(0);
+        }
+        buf.resize(file_length.try_into().unwrap(), 0 as u8);
+        let read_length =  unsafe { OH_ResourceManager_ReadRawFile(raw_file, buf.as_ptr() as * mut ::core::ffi::c_void, file_length.try_into().unwrap())};
+        if i64::from(read_length) < file_length {
+            buf.resize(read_length.try_into().unwrap(), 0 as u8);
+        }
+        let _ = unsafe { OH_ResourceManager_CloseRawFile(raw_file)};
+        return Ok(read_length.try_into().unwrap());
+    }
+}
+
+impl Drop for RawFileMgr {
+    fn drop(&mut self) {
+        unsafe { OH_ResourceManager_ReleaseNativeResourceManager(self.native_resource_manager);}
     }
 }
 
