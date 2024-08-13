@@ -214,6 +214,7 @@ impl Cx {
                 let mut cx = startup();
                 let mut libegl = LibEgl::try_load().expect("can't load LibEGL");
                 let window = cx.handle_surface_created(&from_ohos_rx);
+                cx.ohos_load_dependencies();
 
                 let (egl_context, egl_config, egl_display) = unsafe {
                     egl_sys::create_egl_context(&mut libegl).expect("Can't create EGL context")
@@ -402,7 +403,7 @@ impl CxOsApi for Cx {
         self.live_registry.borrow_mut().package_root = Some("makepad".to_string());
         self.live_expand();
         self.live_scan_dependencies();
-        self.ohos_load_dependencies();
+
     }
 
     fn spawn_thread<F>(&mut self, f: F)
