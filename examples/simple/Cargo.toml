@@ -1,5 +1,5 @@
 [package]
-name = "entry"
+name = "makepad-example-simple"
 version = "0.6.0"
 authors = ["Makepad <info@makepad.nl>"]
 edition = "2021"
@@ -9,8 +9,3 @@ metadata.makepad-auto-version = "db3R5Gxh5Njhx8E-8kuZ2plQ1AI="
 
 [dependencies]
 makepad-widgets = { path = "../../widgets", version = "0.6.0" }
-hilog-sys = "0.1.1"
-hilog = "0.1.0"
-napi-derive-ohos = "0.0.9"
-napi-ohos = "0.1.3"
-ohos-sys = { version = "0.2.1", features = ["xcomponent"] }
