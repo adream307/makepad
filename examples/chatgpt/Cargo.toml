@@ -1,5 +1,5 @@
 [package]
-name = "entry"
+name = "makepad-example-chatgpt"
 version = "0.4.0"
 authors = ["Makepad <info@makepad.nl>"]
 edition = "2021"
@@ -11,5 +11,3 @@ metadata.makepad-auto-version = "50R3qC7SHIbhIOdm12kj5rbaGCM="
 makepad-widgets = { path = "../../widgets", version = "0.6.0" }
 makepad-micro-serde = { path = "../../libs/micro_serde", version = "0.4.0" }
 makepad-micro-serde-derive = { path = "../../libs/micro_serde/derive", version = "0.4.0" }
-napi-derive-ohos = "0.0.9"
-napi-ohos = "0.1.3"
