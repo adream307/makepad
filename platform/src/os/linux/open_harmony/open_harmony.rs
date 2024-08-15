@@ -34,19 +34,24 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions, ark_ts: JsObjec
     };
 
     let raw_ark = unsafe { ark_ts.raw() };
-    let mut show = std::ptr::null_mut();
-    let status = unsafe { napi_get_named_property(raw_env, raw_ark, c"showInputText".as_ptr(), & mut show) };
-    assert!(status == 0);
+    // let mut show = std::ptr::null_mut();
+    // let status = unsafe { napi_get_named_property(raw_env, raw_ark, c"showInputText".as_ptr(), & mut show) };
+    // assert!(status == 0);
 
-    let mut napi_type: napi_valuetype = 0;
-    let _ = unsafe { napi_typeof(raw_env, show, &mut napi_type) };
-    assert!(napi_type == napi_ohos::sys::ValueType::napi_function);
+    // let mut napi_type: napi_valuetype = 0;
+    // let _ = unsafe { napi_typeof(raw_env, show, &mut napi_type) };
+    // assert!(napi_type == napi_ohos::sys::ValueType::napi_function);
+
+    let mut arkts_ref = std::ptr::null_mut();
+    let status = unsafe { napi_create_reference(raw_env, raw_ark, 1,  & mut arkts_ref) };
+    assert!(status == 0);
 
     crate::log!("get showInputText from object");
 
     send_from_ohos_message(FromOhosMessage::Init {
         option: init_opts,
         raw_env,
+        arkts_ref,
         res_mgr,
     });
     Ok(())
@@ -175,10 +180,12 @@ impl Cx {
                             Ok(FromOhosMessage::Init {
                                 option,
                                 raw_env,
+                                arkts_ref,
                                 res_mgr,
                             }) => {
                                 self.os.dpi_factor = option.display_density;
                                 self.os.raw_env = raw_env;
+                                self.os.arkts_ref = arkts_ref;
                                 self.os.res_mgr = res_mgr;
                                 self.os_type = OsType::OpenHarmony(OpenHarmonyParams {
                                     device_type: option.device_type,
@@ -403,6 +410,27 @@ impl Cx {
                 CxOsOp::StopTimer(timer_id) => {
                     self.os.timers.stop_timer(timer_id);
                 }
+                CxOsOp::ShowTextIME(_area, _pos) => {
+                    let mut show = std::ptr::null_mut();
+                    let mut arkts = std::ptr::null_mut();
+                    let recv = std::ptr::null_mut();
+                    let mut result = std::ptr::null_mut();
+
+                    unsafe {
+                        napi_get_reference_value(self.os.raw_env, self.os.arkts_ref, & mut arkts);
+                        napi_get_named_property(self.os.raw_env, arkts, c"showInputText".as_ptr(), & mut show);
+                        napi_call_function(self.os.raw_env, recv, show, 0, std::ptr::null(), & mut result);
+                    }
+
+
+
+                    //self.os.keyboard_trigger_position = area.get_clipped_rect(self).pos;
+                    //unsafe {android_jni::to_java_show_keyboard(true);}
+                }
+                CxOsOp::HideTextIME => {
+                    //self.os.keyboard_visible = false;
+                    //unsafe {android_jni::to_java_show_keyboard(false);}
+                }
                 _ => (),
             }
         }
@@ -452,6 +480,7 @@ pub struct CxOs {
     pub quit: bool,
     pub timers: SelectTimers,
     pub raw_env: napi_ohos::sys::napi_env,
+    pub arkts_ref: napi_ohos::sys::napi_ref,
     pub res_mgr: napi_ohos::sys::napi_value,
     pub(crate) start_time: Instant,
     pub(crate) display: Option<CxOhosDisplay>,
@@ -466,6 +495,7 @@ impl Default for CxOs {
             quit: false,
             timers: SelectTimers::new(),
             raw_env: std::ptr::null_mut(),
+            arkts_ref: std::ptr::null_mut(),
             res_mgr: std::ptr::null_mut(),
             start_time: Instant::now(),
             display: None,
