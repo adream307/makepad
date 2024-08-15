@@ -215,6 +215,7 @@ pub enum FromOhosMessage {
     Init {
         option: OpenHarmonyInitOptions,
         raw_env: napi_ohos::sys::napi_env,
+        arkts_ref: napi_ohos::sys::napi_ref,
         res_mgr: napi_ohos::sys::napi_value,
     },
     SurfaceChanged {
