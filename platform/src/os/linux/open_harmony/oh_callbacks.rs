@@ -56,6 +56,7 @@ extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, window
         height
     );
     send_from_ohos_message(FromOhosMessage::SurfaceCreated {
+        xcomponent,
         window,
         width: width as i32,
         height: height as i32,
@@ -223,6 +224,7 @@ pub enum FromOhosMessage {
         height: i32,
     },
     SurfaceCreated {
+        xcomponent : * mut OH_NativeXComponent,
         window: *mut c_void,
         width: i32,
         height: i32,
