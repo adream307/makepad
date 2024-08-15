@@ -34,13 +34,14 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions, ark_ts: JsObjec
     };
 
     let raw_ark = unsafe { ark_ts.raw() };
-    let mut show = std::ptr::null_mut();
-    let status = unsafe { napi_get_named_property(raw_env, raw_ark, c"showInputText".as_ptr(), & mut show) };
-    assert!(status == 0);
 
-    let mut napi_type: napi_valuetype = 0;
-    let _ = unsafe { napi_typeof(raw_env, show, &mut napi_type) };
-    assert!(napi_type == napi_ohos::sys::ValueType::napi_function);
+    // let mut show = std::ptr::null_mut();
+    // let status = unsafe { napi_get_named_property(raw_env, raw_ark, c"showInputText".as_ptr(), & mut show) };
+    // assert!(status == 0);
+
+    // ;
+    // let _ = unsafe { napi_typeof(raw_env, show, &mut napi_type) };
+    // assert!(napi_type == napi_ohos::sys::ValueType::napi_function);
 
     let mut arkts_ref = std::ptr::null_mut();
     let status = unsafe { napi_create_reference(raw_env, raw_ark, 1,  & mut arkts_ref) };
@@ -415,6 +416,24 @@ impl Cx {
                     let mut arkts = std::ptr::null_mut();
                     let recv = std::ptr::null_mut();
                     let mut result = std::ptr::null_mut();
+                    if unsafe {napi_get_reference_value(self.os.raw_env, self.os.arkts_ref, & mut arkts)} !=0 {
+                        crate::log!("=============== get arkts failed");
+                    }else {
+                        if unsafe {napi_get_named_property(self.os.raw_env, arkts, c"showInputText".as_ptr(), & mut show) } != 0{
+                            crate::log!("================ showInputText failed");
+                        }else {
+                            let mut napi_type: napi_valuetype = 0;
+                            let _ = unsafe { napi_typeof(self.os.raw_env, show, &mut napi_type) };
+                            if napi_type == napi_ohos::sys::ValueType::napi_function {
+                                crate::log!("=========== call showInputText start");
+                                unsafe {napi_call_function(self.os.raw_env, recv, show, 0, std::ptr::null(), & mut result);}
+                                crate::log!("=========== call showInputText end");
+                            }
+
+
+                        }
+                    }
+
                     unsafe {
                         assert!(napi_get_reference_value(self.os.raw_env, self.os.arkts_ref, & mut arkts)==0);
                         assert!(napi_get_named_property(self.os.raw_env, arkts, c"showInputText".as_ptr(), & mut show)==0);
