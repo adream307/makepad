@@ -18,12 +18,12 @@ use {
         window::CxWindowPool,
     },
     napi_derive_ohos::napi,
-    napi_ohos::{Env, JsObject},
+    napi_ohos::{sys::*, Env, JsObject, NapiRaw},
     std::{ffi::CString, os::raw::c_void, rc::Rc, sync::mpsc, time::Instant},
 };
 
 #[napi]
-pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::Result<()> {
+pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions, ark_ts: JsObject) -> napi_ohos::Result<()> {
     crate::log!(
         "call initMakePad from XComponent.onLoad, display_density = {}",
         init_opts.display_density
@@ -32,6 +32,18 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::R
         Some((raw_env, res_mgr)) => (raw_env, res_mgr),
         None => (std::ptr::null_mut(), std::ptr::null_mut()),
     };
+
+    let raw_ark = unsafe { ark_ts.raw() };
+    let mut show = std::ptr::null_mut();
+    let status = unsafe { napi_get_named_property(raw_env, raw_ark, c"showInputText".as_ptr(), & mut show) };
+    assert!(status == 0);
+
+    let mut napi_type: napi_valuetype = 0;
+    let _ = unsafe { napi_typeof(raw_env, show, &mut napi_type) };
+    assert!(napi_type == napi_ohos::sys::ValueType::napi_function);
+
+    crate::log!("get showInputText from object");
+
     send_from_ohos_message(FromOhosMessage::Init {
         option: init_opts,
         raw_env,
