@@ -4,7 +4,8 @@ use {
         oh_callbacks::*,
         oh_media::CxOpenHarmonyMedia,
         raw_file::*,
-    }, crate::{
+    },
+    crate::{
         cx::{Cx, OpenHarmonyParams, OsType},
         cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
         egl_sys::{self, LibEgl, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE},
@@ -15,7 +16,10 @@ use {
         pass::{CxPassParent, PassClearColor, PassClearDepth, PassId},
         thread::SignalToUI,
         window::CxWindowPool,
-    }, napi_derive_ohos::napi, napi_ohos::{Env, JsObject}, ohos_sys::xcomponent, std::{ffi::CString, os::raw::c_void, rc::Rc, sync::mpsc, time::Instant}
+    },
+    napi_derive_ohos::napi,
+    napi_ohos::{Env, JsObject},
+    std::{ffi::CString, os::raw::c_void, rc::Rc, sync::mpsc, time::Instant},
 };
 
 #[napi]
@@ -34,10 +38,6 @@ pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions) -> napi_ohos::R
         res_mgr,
     });
     Ok(())
-}
-
-extern "C" {
-    fn OH_NativeXComponent_SetNeedSoftKeyboard (component : * mut ohos_sys::xcomponent::OH_NativeXComponent, isNeedSoftKeyboard : bool) -> std::ffi::c_int;
 }
 
 impl Cx {
@@ -150,11 +150,10 @@ impl Cx {
     fn handle_surface_created(
         &mut self,
         from_ohos_rx: &mpsc::Receiver<FromOhosMessage>,
-    ) -> (*mut ohos_sys::xcomponent::OH_NativeXComponent, *mut c_void) {
+    ) -> *mut c_void {
         loop {
             match from_ohos_rx.recv() {
                 Ok(FromOhosMessage::SurfaceCreated {
-                    xcomponent,
                     window,
                     width,
                     height,
@@ -186,7 +185,7 @@ impl Cx {
                         height,
                         self.os.dpi_factor
                     );
-                    return (xcomponent, window);
+                    return window;
                 }
                 _ => {}
             }
@@ -213,7 +212,7 @@ impl Cx {
             std::thread::spawn(move || {
                 let mut cx = startup();
                 let mut libegl = LibEgl::try_load().expect("can't load LibEGL");
-                let (xcomponent, window) = cx.handle_surface_created(&from_ohos_rx);
+                let window = cx.handle_surface_created(&from_ohos_rx);
                 cx.ohos_load_dependencies();
 
                 let (egl_context, egl_config, egl_display) = unsafe {
@@ -261,7 +260,6 @@ impl Cx {
                     egl_context,
                     surface,
                     window,
-                    xcomponent,
                 });
 
                 register_vsync_callback(from_ohos_tx);
@@ -383,17 +381,6 @@ impl Cx {
                 CxOsOp::SetCursor(_cursor) => {
                     //xlib_app.set_mouse_cursor(cursor);
                 }
-                CxOsOp::ShowTextIME(_area, _pos) => {
-                    unsafe {
-                        OH_NativeXComponent_SetNeedSoftKeyboard(self.os.display.as_mut().unwrap().xcomponent,true);
-                    }
-                    //self.os.keyboard_trigger_position = area.get_clipped_rect(self).pos;
-                    //unsafe {android_jni::to_java_show_keyboard(true);}
-                }
-                CxOsOp::HideTextIME => {
-                    //self.os.keyboard_visible = false;
-                    //unsafe {android_jni::to_java_show_keyboard(false);}
-                }
                 CxOsOp::StartTimer {
                     timer_id,
                     interval,
@@ -444,7 +431,6 @@ pub struct CxOhosDisplay {
     pub egl_context: egl_sys::EGLContext,
     pub surface: egl_sys::EGLSurface,
     pub window: *mut c_void, //event_handler: Box<dyn EventHandler>,
-    pub xcomponent : * mut ohos_sys::xcomponent::OH_NativeXComponent
 }
 
 pub struct CxOs {
