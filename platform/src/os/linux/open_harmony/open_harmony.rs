@@ -415,11 +415,10 @@ impl Cx {
                     let mut arkts = std::ptr::null_mut();
                     let recv = std::ptr::null_mut();
                     let mut result = std::ptr::null_mut();
-
                     unsafe {
-                        napi_get_reference_value(self.os.raw_env, self.os.arkts_ref, & mut arkts);
-                        napi_get_named_property(self.os.raw_env, arkts, c"showInputText".as_ptr(), & mut show);
-                        napi_call_function(self.os.raw_env, recv, show, 0, std::ptr::null(), & mut result);
+                        assert!(napi_get_reference_value(self.os.raw_env, self.os.arkts_ref, & mut arkts))==0;
+                        assert!(napi_get_named_property(self.os.raw_env, arkts, c"showInputText".as_ptr(), & mut show)==0);
+                        assert!(napi_call_function(self.os.raw_env, recv, show, 0, std::ptr::null(), & mut result)==0);
                     }
 
 
