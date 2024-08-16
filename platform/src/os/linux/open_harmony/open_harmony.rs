@@ -431,12 +431,17 @@ impl Cx {
                     crate::log!("========= step3");
                     assert!(napi_type == napi_ohos::sys::ValueType::napi_function);
                     crate::log!("========= step4");
-                    assert!(unsafe {
+
+                    let mut asyn_resource_name = std::ptr::null_mut();
+                    assert!(unsafe { napi_create_string_utf8(self.os.raw_env, c"thread_safe".as_ptr(), 11, & mut asyn_resource_name)} == 0);
+                    crate::log!("========= get resouce name");
+
+                    let status = unsafe {
                         napi_create_threadsafe_function(
                             self.os.raw_env,
                             show,
                             std::ptr::null_mut(),
-                            std::ptr::null_mut(),
+                            asyn_resource_name,
                             0,
                             1,
                             std::ptr::null_mut(),
@@ -445,7 +450,9 @@ impl Cx {
                             Some(call_js),
                             & mut tsfn
                         )
-                    }==0);
+                    };
+                    crate::log!("napi_create_threadsafe_function status = {}",status);
+                    assert!(status == 0);
                     crate::log!("=========== step5");
                     assert!(unsafe { napi_acquire_threadsafe_function(tsfn)}==0);
                     crate::log!("=========== step6");
