@@ -22,6 +22,12 @@ use {
     std::{ffi::CString, os::raw::c_void, rc::Rc, sync::mpsc, time::Instant},
 };
 
+extern "C" fn call_js(env: napi_env, js_job: napi_value, _context: * mut c_void, _data: * mut c_void) {
+    let mut result = std::ptr::null_mut();
+    let state = unsafe { napi_call_function(env, std::ptr::null_mut(), js_job, 0, std::ptr::null(), & mut result)};
+    assert!(state==0);
+}
+
 #[napi]
 pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions, ark_ts: JsObject) -> napi_ohos::Result<()> {
     crate::log!(
@@ -414,33 +420,38 @@ impl Cx {
                 CxOsOp::ShowTextIME(_area, _pos) => {
                     let mut show = std::ptr::null_mut();
                     let mut arkts = std::ptr::null_mut();
-                    let recv = std::ptr::null_mut();
-                    let mut result = std::ptr::null_mut();
-                    if unsafe {napi_get_reference_value(self.os.raw_env, self.os.arkts_ref, & mut arkts)} !=0 {
-                        crate::log!("=============== get arkts failed");
-                    }else {
-                        if unsafe {napi_get_named_property(self.os.raw_env, arkts, c"showInputText".as_ptr(), & mut show) } != 0{
-                            crate::log!("================ showInputText failed");
-                        }else {
-                            let mut napi_type: napi_valuetype = 0;
-                            let _ = unsafe { napi_typeof(self.os.raw_env, show, &mut napi_type) };
-                            if napi_type == napi_ohos::sys::ValueType::napi_function {
-                                crate::log!("=========== call showInputText start");
-                                unsafe {napi_call_function(self.os.raw_env, recv, show, 0, std::ptr::null(), & mut result);}
-                                crate::log!("=========== call showInputText end");
-                            }
+                    let mut napi_type: napi_valuetype = 0;
+                    let mut tsfn = std::ptr::null_mut();
 
-
-                        }
-                    }
-
-                    unsafe {
-                        assert!(napi_get_reference_value(self.os.raw_env, self.os.arkts_ref, & mut arkts)==0);
-                        assert!(napi_get_named_property(self.os.raw_env, arkts, c"showInputText".as_ptr(), & mut show)==0);
-                        assert!(napi_call_function(self.os.raw_env, recv, show, 0, std::ptr::null(), & mut result)==0);
-                    }
-
-
+                    assert!(unsafe {napi_get_reference_value(self.os.raw_env, self.os.arkts_ref, & mut arkts)} == 0);
+                    crate::log!("========= step1");
+                    assert!(unsafe {napi_get_named_property(self.os.raw_env, arkts, c"showInputText".as_ptr(), & mut show)} == 0);
+                    crate::log!("========= step2");
+                    assert!(unsafe { napi_typeof(self.os.raw_env, show, &mut napi_type)} == 0);
+                    crate::log!("========= step3");
+                    assert!(napi_type == napi_ohos::sys::ValueType::napi_function);
+                    crate::log!("========= step4");
+                    assert!(unsafe {
+                        napi_create_threadsafe_function(
+                            self.os.raw_env,
+                            show,
+                            std::ptr::null_mut(),
+                            std::ptr::null_mut(),
+                            0,
+                            1,
+                            std::ptr::null_mut(),
+                            None,
+                            std::ptr::null_mut(),
+                            Some(call_js),
+                            & mut tsfn
+                        )
+                    }==0);
+                    crate::log!("=========== step5");
+                    assert!(unsafe { napi_acquire_threadsafe_function(tsfn)}==0);
+                    crate::log!("=========== step6");
+                    assert!(unsafe { napi_call_threadsafe_function(tsfn,std::ptr::null_mut(),1)}==0);
+                    crate::log!("=========== step7");
+                    assert!(unsafe {napi_release_threadsafe_function(tsfn,0)} == 0);
 
                     //self.os.keyboard_trigger_position = area.get_clipped_rect(self).pos;
                     //unsafe {android_jni::to_java_show_keyboard(true);}
