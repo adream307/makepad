@@ -456,7 +456,7 @@ impl Cx {
                     crate::log!("=========== step5");
                     assert!(unsafe { napi_acquire_threadsafe_function(tsfn)}==0);
                     crate::log!("=========== step6");
-                    assert!(unsafe { napi_call_threadsafe_function(tsfn,std::ptr::null_mut(),1)}==0);
+                    assert!(unsafe { napi_call_threadsafe_function(tsfn,std::ptr::null_mut(),0)}==0);
                     crate::log!("=========== step7");
                     assert!(unsafe {napi_release_threadsafe_function(tsfn,0)} == 0);
 
