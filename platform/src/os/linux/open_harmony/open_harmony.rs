@@ -22,9 +22,10 @@ use {
     std::{ffi::CString, os::raw::c_void, rc::Rc, sync::mpsc, time::Instant},
 };
 
-extern "C" fn call_js(env: napi_env, js_job: napi_value, _context: * mut c_void, _data: * mut c_void) {
+extern "C" fn call_js(env: napi_env, js_job: napi_value, _context: * mut c_void, data: * mut c_void) {
     let mut result = std::ptr::null_mut();
-    let state = unsafe { napi_call_function(env, std::ptr::null_mut(), js_job, 0, std::ptr::null(), & mut result)};
+    let arkts_ptr = unsafe { Box::from_raw(data as * mut napi_value)};
+    let state = unsafe { napi_call_function(env, arkts_ptr.as_ref().clone(), js_job, 0, std::ptr::null(), & mut result)};
     assert!(state==0);
 }
 
@@ -456,7 +457,8 @@ impl Cx {
                     crate::log!("=========== step5");
                     assert!(unsafe { napi_acquire_threadsafe_function(tsfn)}==0);
                     crate::log!("=========== step6");
-                    assert!(unsafe { napi_call_threadsafe_function(tsfn,std::ptr::null_mut(),0)}==0);
+                    let arkts_ptr = Box::new(arkts);
+                    assert!(unsafe { napi_call_threadsafe_function(tsfn,Box::into_raw(arkts_ptr) as *mut c_void,0)}==0);
                     crate::log!("=========== step7");
                     assert!(unsafe {napi_release_threadsafe_function(tsfn,0)} == 0);
 
