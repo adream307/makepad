@@ -4,29 +4,50 @@ use {
         oh_callbacks::*,
         oh_media::CxOpenHarmonyMedia,
         raw_file::*,
-    },
-    crate::{
-        cx::{Cx, OpenHarmonyParams, OsType},
-        cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
-        egl_sys::{self, LibEgl, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE},
-        event::{Event, TouchUpdateEvent, WindowGeom},
-        gpu_info::GpuPerformance,
-        makepad_math::*,
-        os::cx_native::EventFlow,
-        pass::{CxPassParent, PassClearColor, PassClearDepth, PassId},
-        thread::SignalToUI,
-        window::CxWindowPool,
-    },
-    napi_derive_ohos::napi,
-    napi_ohos::{sys::*, Env, JsObject, NapiRaw},
-    std::{ffi::CString, os::raw::c_void, rc::Rc, sync::mpsc, time::Instant},
+    }, super::oh_sys::uv_work_t, crate::{
+        cx::{Cx, OpenHarmonyParams, OsType}, cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace}, egl_sys::{self, LibEgl, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE}, event::{Event, TouchUpdateEvent, WindowGeom}, gpu_info::GpuPerformance, makepad_math::*, open_harmony::oh_sys::uv_queue_work, os::cx_native::EventFlow, pass::{CxPassParent, PassClearColor, PassClearDepth, PassId}, thread::SignalToUI, window::CxWindowPool
+    }, napi_derive_ohos::napi, napi_ohos::{sys::*, Env, JsObject, NapiRaw}, std::{ffi::CString, os::raw::{c_int, c_void}, rc::Rc, sync::mpsc, time::Instant}
 };
 
-extern "C" fn call_js(env: napi_env, js_job: napi_value, _context: * mut c_void, data: * mut c_void) {
+struct UvData {
+    env: napi_env,
+    arkts: napi_ref
+}
+
+// extern "C" fn call_js(env: napi_env, js_job: napi_value, _context: * mut c_void, data: * mut c_void) {
+//     let mut result = std::ptr::null_mut();
+//     let arkts_ptr = unsafe { Box::from_raw(data as * mut napi_value)};
+//     let state = unsafe { napi_call_function(env, arkts_ptr.as_ref().clone(), js_job, 0, std::ptr::null(), & mut result)};
+//     assert!(state==0);
+// }
+
+extern "C" fn js_work_cb(_req: * mut uv_work_t) {
+    crate::log!("============ js_work_cb ===========");
+}
+
+extern "C" fn js_after_work_cb(req: * mut uv_work_t, _status: c_int) {
+    crate::log!("=========== js_after_work_cb =======");
+    let d = unsafe { (*req).data};
+    let data = unsafe { Box::from_raw(d as * mut UvData) };
+
+    let mut arkts = std::ptr::null_mut();
+    let mut show = std::ptr::null_mut();
+    let status = unsafe {napi_get_reference_value(data.env, data.arkts, & mut arkts) };
+    assert!(status == 0);
+    let status = unsafe {napi_get_named_property(data.env, arkts, c"showInputText".as_ptr(), & mut show)};
+    assert!(status==0);
+
+    let mut napi_type: napi_valuetype = 0;
+    let status = unsafe { napi_typeof(data.env, show, &mut napi_type)};
+    assert!(status==0);
+    assert!(napi_type == napi_ohos::sys::ValueType::napi_function);
+
     let mut result = std::ptr::null_mut();
-    let arkts_ptr = unsafe { Box::from_raw(data as * mut napi_value)};
-    let state = unsafe { napi_call_function(env, arkts_ptr.as_ref().clone(), js_job, 0, std::ptr::null(), & mut result)};
-    assert!(state==0);
+    let status = unsafe { napi_call_function(data.env, arkts, show, 0, std::ptr::null(), & mut result) };
+    assert!(status==0);
+    let layout = std::alloc::Layout::new::<uv_work_t>();
+    unsafe {std::alloc::dealloc(req as * mut u8, layout)};
+
 }
 
 #[napi]
@@ -418,53 +439,71 @@ impl Cx {
                 CxOsOp::StopTimer(timer_id) => {
                     self.os.timers.stop_timer(timer_id);
                 }
-                CxOsOp::ShowTextIME(_area, _pos) => {
-                    let mut show = std::ptr::null_mut();
-                    let mut arkts = std::ptr::null_mut();
-                    let mut napi_type: napi_valuetype = 0;
-                    let mut tsfn = std::ptr::null_mut();
-
-                    assert!(unsafe {napi_get_reference_value(self.os.raw_env, self.os.arkts_ref, & mut arkts)} == 0);
-                    crate::log!("========= step1");
-                    assert!(unsafe {napi_get_named_property(self.os.raw_env, arkts, c"showInputText".as_ptr(), & mut show)} == 0);
-                    crate::log!("========= step2");
-                    assert!(unsafe { napi_typeof(self.os.raw_env, show, &mut napi_type)} == 0);
-                    crate::log!("========= step3");
-                    assert!(napi_type == napi_ohos::sys::ValueType::napi_function);
-                    crate::log!("========= step4");
-
-                    let mut asyn_resource_name = std::ptr::null_mut();
-                    assert!(unsafe { napi_create_string_utf8(self.os.raw_env, c"thread_safe".as_ptr(), 11, & mut asyn_resource_name)} == 0);
-                    crate::log!("========= get resouce name");
-
-                    let status = unsafe {
-                        napi_create_threadsafe_function(
-                            self.os.raw_env,
-                            show,
-                            std::ptr::null_mut(),
-                            asyn_resource_name,
-                            0,
-                            1,
-                            std::ptr::null_mut(),
-                            None,
-                            std::ptr::null_mut(),
-                            Some(call_js),
-                            & mut tsfn
-                        )
-                    };
-                    crate::log!("napi_create_threadsafe_function status = {}",status);
+                CxOsOp::ShowTextIME(_area,_pos ) => {
+                    let mut uv_loop = std::ptr::null_mut();
+                    let status = unsafe { napi_get_uv_event_loop(self.os.raw_env, & mut uv_loop) };
                     assert!(status == 0);
-                    crate::log!("=========== step5");
-                    assert!(unsafe { napi_acquire_threadsafe_function(tsfn)}==0);
-                    crate::log!("=========== step6");
-                    let arkts_ptr = Box::new(arkts);
-                    assert!(unsafe { napi_call_threadsafe_function(tsfn,Box::into_raw(arkts_ptr) as *mut c_void,0)}==0);
-                    crate::log!("=========== step7");
-                    assert!(unsafe {napi_release_threadsafe_function(tsfn,0)} == 0);
 
-                    //self.os.keyboard_trigger_position = area.get_clipped_rect(self).pos;
-                    //unsafe {android_jni::to_java_show_keyboard(true);}
+                    let layout = std::alloc::Layout::new::<uv_work_t>();
+                    let req = unsafe{std::alloc::alloc(layout) as * mut uv_work_t};
+                    let data = UvData{
+                        env:self.os.raw_env,
+                        arkts:self.os.arkts_ref
+                    };
+                    let bdata = Box::new(data);
+                    unsafe { (*req).data = Box::into_raw(bdata) as * mut c_void };
+
+                    unsafe { uv_queue_work(uv_loop, req, Some(js_work_cb), Some(js_after_work_cb)) };
+
                 }
+
+                // CxOsOp::ShowTextIME(_area, _pos) => {
+                //     let mut show = std::ptr::null_mut();
+                //     let mut arkts = std::ptr::null_mut();
+                //     let mut napi_type: napi_valuetype = 0;
+                //     let mut tsfn = std::ptr::null_mut();
+
+                //     assert!(unsafe {napi_get_reference_value(self.os.raw_env, self.os.arkts_ref, & mut arkts)} == 0);
+                //     crate::log!("========= step1");
+                //     assert!(unsafe {napi_get_named_property(self.os.raw_env, arkts, c"showInputText".as_ptr(), & mut show)} == 0);
+                //     crate::log!("========= step2");
+                //     assert!(unsafe { napi_typeof(self.os.raw_env, show, &mut napi_type)} == 0);
+                //     crate::log!("========= step3");
+                //     assert!(napi_type == napi_ohos::sys::ValueType::napi_function);
+                //     crate::log!("========= step4");
+
+                //     let mut asyn_resource_name = std::ptr::null_mut();
+                //     assert!(unsafe { napi_create_string_utf8(self.os.raw_env, c"thread_safe".as_ptr(), 11, & mut asyn_resource_name)} == 0);
+                //     crate::log!("========= get resouce name");
+
+                //     let status = unsafe {
+                //         napi_create_threadsafe_function(
+                //             self.os.raw_env,
+                //             show,
+                //             std::ptr::null_mut(),
+                //             asyn_resource_name,
+                //             0,
+                //             1,
+                //             std::ptr::null_mut(),
+                //             None,
+                //             std::ptr::null_mut(),
+                //             Some(call_js),
+                //             & mut tsfn
+                //         )
+                //     };
+                //     crate::log!("napi_create_threadsafe_function status = {}",status);
+                //     assert!(status == 0);
+                //     crate::log!("=========== step5");
+                //     assert!(unsafe { napi_acquire_threadsafe_function(tsfn)}==0);
+                //     crate::log!("=========== step6");
+                //     let arkts_ptr = Box::new(arkts);
+                //     assert!(unsafe { napi_call_threadsafe_function(tsfn,Box::into_raw(arkts_ptr) as *mut c_void,0)}==0);
+                //     crate::log!("=========== step7");
+                //     assert!(unsafe {napi_release_threadsafe_function(tsfn,0)} == 0);
+
+                //     //self.os.keyboard_trigger_position = area.get_clipped_rect(self).pos;
+                //     //unsafe {android_jni::to_java_show_keyboard(true);}
+                // }
                 CxOsOp::HideTextIME => {
                     //self.os.keyboard_visible = false;
                     //unsafe {android_jni::to_java_show_keyboard(false);}
