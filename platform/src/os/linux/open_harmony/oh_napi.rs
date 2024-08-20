@@ -214,13 +214,15 @@ impl NapiEnv {
         let req = Self::alloca_work_t(args);
         let uv_loop = self.get_loop()?;
         let _ = unsafe { uv_queue_work(uv_loop, req, Some(Self::js_work_cb), Some(Self::js_after_work_cb))};
-        match self.val_rx.recv(){
+        let ret = match self.val_rx.recv(){
             Ok(r) => r,
             Err(e) =>{
                 crate::error!("failed to get result for js function {}, error = {}",name, e);
                 Err(NapiError::CallJsFailed)
             }
-        }
+        };
+        Self::dealloca_work_s(req);
+        ret
     }
 
     pub fn raw(&self) -> napi_env {
