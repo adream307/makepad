@@ -1,5 +1,9 @@
+use makepad_futures::channel::oneshot::Receiver;
 use napi_ohos::sys::*;
-use std::{ffi::CString, ffi::NulError,  ptr::null_mut};
+use super::oh_sys::*;
+use std::ffi::*;
+use std::ptr::null_mut;
+use std::sync::mpsc;
 
 
 
@@ -11,6 +15,9 @@ pub enum NapiError {
     InvalidGlobalThisType,
     InvalidProperty,
     InvalidStringValue,
+    InvalidNumberValue,
+    InvalidFunction,
+    InvalidObjectValue,
     UnDefinedPropertyType,
 }
 
@@ -20,15 +27,53 @@ impl From<NulError> for NapiError {
     }
 }
 
-pub struct NapiEnv(pub(crate) napi_env);
+pub struct NapiEnv {
+    raw_env: napi_env,
+    obj_ref: napi_ref,
+}
 
-impl From<napi_env> for NapiEnv {
-    fn from(env: napi_env) -> Self {
-      NapiEnv(env)
-    }
+struct WorkArgs{
+    pub env: napi_env,
+    pub obj: napi_value,
+    pub js_fn : napi_value,
+    pub argc : usize,
+    pub argv : * const napi_value,
+    pub fn_name : String,
+    pub is_void : bool,
+    pub val_tx: Option<mpsc::Sender<napi_value>>,
+    pub val_rx: Option<mpsc::Receiver<napi_value>>
 }
 
 impl NapiEnv {
+    pub fn new(env: napi_env, obj:napi_ref) -> Self {
+        NapiEnv{
+            raw_env:env,
+            obj_ref:obj,
+        }
+    }
+
+    pub fn get_ref_value(&self) -> Result<napi_value, NapiError> {
+        let mut result = null_mut();
+        let napi_status = unsafe { napi_get_reference_value(self.raw_env, self.obj_ref, & mut result)};
+        if napi_status!=Status::napi_ok {
+            crate::error!("failed to get value from reference");
+            return Err(NapiError::InvalidObjectValue);
+        }
+        return Ok(result);
+    }
+
+    fn alloca_work_t(args: WorkArgs) -> * mut uv_work_t {
+        let layout = std::alloc::Layout::new::<uv_work_t>();
+        let req = unsafe{std::alloc::alloc(layout) as * mut uv_work_t};
+        let bargs = Box::new(args);
+        unsafe { (*req).data = Box::into_raw(bargs) as * mut c_void };
+        return req;
+    }
+
+    fn dealloca_work_s(req: * mut uv_work_t) {
+        let layout = std::alloc::Layout::new::<uv_work_t>();
+        unsafe {std::alloc::dealloc(req as * mut u8, layout)};
+    }
 
     fn value_type_to_string(val_type: &napi_valuetype) -> String {
         match *val_type {
@@ -45,54 +90,33 @@ impl NapiEnv {
         }
     }
 
-    fn get_global_this(&self) -> Result<napi_value,NapiError> {
-        let mut global_obj = null_mut();
-        let napi_status = unsafe { napi_get_global(self.0, & mut global_obj)};
-        if napi_status != Status::napi_ok {
-            crate::error!("get global from env failed, error code = {}", napi_status);
-            return Err(NapiError::InvalidGlobal);
-        }
-
-        let mut global_this = null_mut();
-        let napi_status = unsafe {
-            napi_get_named_property(
-                self.0,
-                global_obj,
-                c"globalThis".as_ptr(),
-                &mut global_this,
-            )
-        };
-        if napi_status != Status::napi_ok {
-            crate::error!(
-                "get globalThis from global failed, error code = {}",
-                napi_status
-            );
-            return Err(NapiError::InvalidGlobalThis);
-        }
-
-        let mut napi_type: napi_valuetype = 0;
-        let _ = unsafe { napi_typeof(self.0, global_this, &mut napi_type) };
-        if napi_type != ValueType::napi_object {
-            crate::error!(
-                "globalThis expect to be object, current data type = {}",
-                Self::value_type_to_string(&napi_type)
-            );
-            return Err(NapiError::InvalidGlobalThisType);
-        }
-        return Ok(global_this);
+    extern "C" fn js_work_cb(_req: * mut uv_work_t) {
     }
 
-    fn get_property(&self, object: napi_value, name: &str) -> Result<napi_value, NapiError> {
+    extern "C" fn js_after_work_cb(req: * mut uv_work_t, _status: c_int) {
+        let mut result = null_mut();
+        let args = unsafe { Box::from_raw((*req).data as * mut WorkArgs) };
+        let napi_status = unsafe { napi_call_function(args.env, args.obj, args.js_fn, args.argc, args.argv, & mut result) };
+        if napi_status != Status::napi_ok {
+            crate::error!("failed to call js function:{}", args.fn_name);
+        }
+        if !args.is_void {
+            let _ = args.val_tx.unwrap().send(result);
+        }
+    }
+
+    fn get_property(&self, name: &str) -> Result<napi_value, NapiError> {
         let cname = CString::new(name)?;
         let  mut result = null_mut();
+        let object = self.get_ref_value()?;
         let napi_status = unsafe { napi_get_named_property(
-            self.0, object, cname.as_ptr(), & mut result)};
+            self.raw_env, object, cname.as_ptr(), & mut result)};
         if napi_status != Status::napi_ok {
             crate::error!("get property {} failed", name);
             return Err(NapiError::InvalidProperty);
         }
         let mut napi_type: napi_valuetype = 0;
-        let _ = unsafe { napi_typeof(self.0, result, &mut napi_type) };
+        let _ = unsafe { napi_typeof(self.raw_env, result, &mut napi_type) };
         if napi_type == ValueType::napi_undefined {
             crate::error!("property {} is undefined", name);
             return Err(NapiError::UnDefinedPropertyType);
@@ -100,10 +124,10 @@ impl NapiEnv {
         return Ok(result);
     }
 
-    fn get_string(&self, object: napi_value, name: &str) -> Result<String,NapiError> {
-        let property =  self.get_property(object, name)?;
+    pub fn get_string(&self, name: &str) -> Result<String,NapiError> {
+        let property =  self.get_property(name)?;
         let mut len = 0;
-        let napi_status = unsafe { napi_get_value_string_utf8(self.0, property, null_mut(), 0, & mut len)};
+        let napi_status = unsafe { napi_get_value_string_utf8(self.raw_env, property, null_mut(), 0, & mut len)};
         if napi_status != Status::napi_ok {
             crate::error!("failed to get string {} from napi_value", name);
             return Err(NapiError::InvalidStringValue);
@@ -113,7 +137,7 @@ impl NapiEnv {
         let mut ret = Vec::with_capacity(len);
         let buf_ptr = ret.as_mut_ptr();
         let mut written_char_count = 0;
-        let napi_status = unsafe { napi_get_value_string_utf8(self.0, property, buf_ptr, len, & mut written_char_count) };
+        let napi_status = unsafe { napi_get_value_string_utf8(self.raw_env, property, buf_ptr, len, & mut written_char_count) };
         if napi_status != Status::napi_ok {
             crate::error!("failed to get string {} from napi_value", name);
             return Err(NapiError::InvalidStringValue);
@@ -131,8 +155,30 @@ impl NapiEnv {
         }
     }
 
+    pub fn get_number(&self, name: &str) -> Result<f64, NapiError> {
+        let property = self.get_property( name)?;
+        let mut result:f64 = 0.0;
+        let napi_status = unsafe { napi_get_value_double(self.raw_env, property, & mut result) };
+        if napi_status != Status::napi_ok {
+            crate::error!("failed to read double from property {}",name);
+            return Err(NapiError::InvalidNumberValue);
+        }
+        return Ok(result);
+    }
+
+    pub fn call_js_function(&self, name: &str, argc: usize, argv: *const napi_value,) -> Result<napi_value, NapiError> {
+        let property = self.get_property(name)?;
+        let mut napi_type: napi_valuetype = 0;
+        let _ = unsafe { napi_typeof(self.raw_env, property, &mut napi_type) };
+        if napi_type != ValueType::napi_function {
+            crate::error!("{}' type expect to be function, current type is {}", name, Self::value_type_to_string(&napi_type));
+            return Err(NapiError::InvalidFunction);
+        }
+        return Ok(property);
+
+    }
+
     pub fn raw(&self) -> napi_env {
-        self.0
+        self.raw_env
     }
 }
-
