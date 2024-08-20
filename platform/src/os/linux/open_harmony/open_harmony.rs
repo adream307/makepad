@@ -52,27 +52,27 @@ extern "C" fn js_after_work_cb(req: * mut uv_work_t, _status: c_int) {
 }
 
 #[napi]
-pub fn init_makepad(env: Env, init_opts: OpenHarmonyInitOptions, ark_ts: JsObject) -> napi_ohos::Result<()> {
-    crate::log!(
-        "call initMakePad from XComponent.onLoad, display_density = {}",
-        init_opts.display_density
-    );
+pub fn init_makepad(env: Env,  ark_ts: JsObject) -> napi_ohos::Result<()> {
     let (raw_env, res_mgr) = match RawFileMgr::get_resource_manager(&env) {
         Some((raw_env, res_mgr)) => (raw_env, res_mgr),
         None => (std::ptr::null_mut(), std::ptr::null_mut()),
     };
 
     let raw_ark = unsafe { ark_ts.raw() };
-
-    // let mut show = std::ptr::null_mut();
-    // let status = unsafe { napi_get_named_property(raw_env, raw_ark, c"showInputText".as_ptr(), & mut show) };
-    // assert!(status == 0);
-
-    // ;
-    // let _ = unsafe { napi_typeof(raw_env, show, &mut napi_type) };
-    // assert!(napi_type == napi_ohos::sys::ValueType::napi_function);
-
     let mut arkts_ref = std::ptr::null_mut();
+    let arkts_util = NapiEnv::new(env.raw(), arkts_ref);
+    let device_type = arkts_util.get_string("deviceType").unwrap();
+    let os_full_name = arkts_util.get_string("osFullName").unwrap();
+    let display_density = arkts_util.get_number("displayDensity").unwrap();
+
+    crate::log!("call initMakePad from XComponent.onLoad, display_density = {}", display_density);
+
+    let init_opts = OpenHarmonyInitOptions{
+        device_type,
+        os_full_name,
+        display_density
+    };
+
     let status = unsafe { napi_create_reference(raw_env, raw_ark, 1,  & mut arkts_ref) };
     assert!(status == 0);
 
