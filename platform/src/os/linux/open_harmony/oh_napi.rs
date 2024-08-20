@@ -166,15 +166,6 @@ impl NapiEnv {
     }
 
     pub fn call_js_function(&self, name: &str, argc: usize, argv: *const napi_value) -> Result<napi_value, NapiError> {
-        let args = WorkArgs{
-            env: &self,
-            fn_name:name.to_string(),
-            argc:argc,
-            argv:argv,
-        };
-        let req = Self::alloca_work_t(args);
-        let uv_loop = self.get_loop()?;
-
         extern "C" fn js_after_work_cb(req: * mut uv_work_t, _status: c_int) {
             let args = unsafe { Box::from_raw((*req).data as * mut WorkArgs) };
             let mut arkts_obj = null_mut();
@@ -214,7 +205,14 @@ impl NapiEnv {
     
         }
 
-
+        let args = WorkArgs{
+            env: &self,
+            fn_name:name.to_string(),
+            argc:argc,
+            argv:argv,
+        };
+        let req = Self::alloca_work_t(args);
+        let uv_loop = self.get_loop()?;
 
         let _ = unsafe { uv_queue_work(uv_loop, req, Some(Self::js_work_cb), Some(js_after_work_cb))};
         let ret = match self.val_rx.recv(){
