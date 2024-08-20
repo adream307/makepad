@@ -31,6 +31,8 @@ impl From<NulError> for NapiError {
 pub struct NapiEnv {
     raw_env: napi_env,
     obj_ref: napi_ref,
+    val_tx: mpsc::Sender<Result<napi_value,NapiError>>,
+    val_rx: mpsc::Receiver<Result<napi_value,NapiError>>
 }
 
 struct WorkArgs<'a>{
@@ -38,14 +40,16 @@ struct WorkArgs<'a>{
     pub fn_name : String,
     pub argc : usize,
     pub argv : * const napi_value,
-    pub val_tx: mpsc::Sender<Result<napi_value, NapiError>>,
 }
 
 impl NapiEnv {
     pub fn new(env: napi_env, obj:napi_ref) -> Self {
+        let (tx,rx)=mpsc::channel();
         NapiEnv{
             raw_env:env,
             obj_ref:obj,
+            val_tx:tx,
+            val_rx:rx
         }
     }
 
@@ -107,7 +111,7 @@ impl NapiEnv {
         let napi_status = unsafe { napi_get_reference_value(args.env.raw_env, args.env.obj_ref, & mut arkts_obj)};
         if napi_status!=Status::napi_ok {
             crate::error!("failed to get value from reference");
-            let _ = args.val_tx.send(Err(NapiError::InvalidObjectValue));
+            let _ = args.env.val_tx.send(Err(NapiError::InvalidObjectValue));
             return;
         }
 
@@ -116,7 +120,7 @@ impl NapiEnv {
         let napi_status = unsafe { napi_get_named_property(args.env.raw_env, arkts_obj, fn_name.as_ptr(), & mut js_fn)};
         if napi_status != Status::napi_ok {
             crate::error!("failed to get function {} from arkts object", args.fn_name);
-            let _ = args.val_tx.send(Err(NapiError::InvalidProperty));
+            let _ = args.env.val_tx.send(Err(NapiError::InvalidProperty));
             return;
         }
 
@@ -124,7 +128,7 @@ impl NapiEnv {
         let _ = unsafe { napi_typeof(args.env.raw_env, js_fn, &mut napi_type) };
         if napi_type != ValueType::napi_function {
             crate::error!("property {} is not function",args.fn_name);
-            let _ = args.val_tx.send(Err(NapiError::InvalidFunction));
+            let _ = args.env.val_tx.send(Err(NapiError::InvalidFunction));
             return;
         }
 
@@ -132,9 +136,10 @@ impl NapiEnv {
         let napi_status = unsafe { napi_call_function(args.env.raw(), arkts_obj, js_fn, args.argc, args.argv, & mut call_result) };
         if napi_status != Status::napi_ok {
             crate::error!("failed to call js function:{}", args.fn_name);
-            let _ = args.val_tx.send(Err(NapiError::CallJsFailed));
+            let _ = args.env.val_tx.send(Err(NapiError::CallJsFailed));
             return;
         }
+        let _ = args.env.val_tx.send(Ok(call_result));
 
     }
 
@@ -200,19 +205,16 @@ impl NapiEnv {
     }
 
     pub fn call_js_function(&self, name: &str, argc: usize, argv: *const napi_value) -> Result<napi_value, NapiError> {
-        let (tx,rx) =  mpsc::channel();
-
         let args = WorkArgs{
             env: &self,
             fn_name:name.to_string(),
             argc:argc,
             argv:argv,
-            val_tx:tx,
         };
         let req = Self::alloca_work_t(args);
         let uv_loop = self.get_loop()?;
         let _ = unsafe { uv_queue_work(uv_loop, req, Some(Self::js_work_cb), Some(Self::js_after_work_cb))};
-        match rx.recv(){
+        match self.val_rx.recv(){
             Ok(r) => r,
             Err(e) =>{
                 crate::error!("failed to get result for js function {}, error = {}",name, e);
