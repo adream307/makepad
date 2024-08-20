@@ -10,6 +10,7 @@ pub enum NapiError {
     InvalidGlobalThis,
     InvalidGlobalThisType,
     InvalidProperty,
+    InvalidStringValue,
     UnDefinedPropertyType,
 }
 
@@ -97,6 +98,37 @@ impl NapiEnv {
             return Err(NapiError::UnDefinedPropertyType);
         }
         return Ok(result);
+    }
+
+    fn get_string(&self, object: napi_value, name: &str) -> Result<String,NapiError> {
+        let property =  self.get_property(object, name)?;
+        let mut len = 0;
+        let napi_status = unsafe { napi_get_value_string_utf8(self.0, property, null_mut(), 0, & mut len)};
+        if napi_status != Status::napi_ok {
+            crate::error!("failed to get string {} from napi_value", name);
+            return Err(NapiError::InvalidStringValue);
+        }
+
+        len += 1;
+        let mut ret = Vec::with_capacity(len);
+        let buf_ptr = ret.as_mut_ptr();
+        let mut written_char_count = 0;
+        let napi_status = unsafe { napi_get_value_string_utf8(self.0, property, buf_ptr, len, & mut written_char_count) };
+        if napi_status != Status::napi_ok {
+            crate::error!("failed to get string {} from napi_value", name);
+            return Err(NapiError::InvalidStringValue);
+        }
+
+        let mut ret = std::mem::ManuallyDrop::new(ret);
+        let buf_ptr = ret.as_mut_ptr();
+        let bytes = unsafe { Vec::from_raw_parts(buf_ptr as *mut u8, written_char_count, len) };
+        match String::from_utf8(bytes) {
+            Err(e) =>{
+                crate::error!("failed to read utf8 string, {}", e);
+                Err(NapiError::InvalidStringValue)
+            },
+            Ok(s) => Ok(s),
+        }
     }
 
     pub fn raw(&self) -> napi_env {
