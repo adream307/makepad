@@ -33,15 +33,12 @@ pub struct NapiEnv {
     obj_ref: napi_ref,
 }
 
-struct WorkArgs{
-    pub env: napi_env,
-    pub obj: napi_value,
-    pub js_fn : napi_value,
+struct WorkArgs<'a>{
+    pub env : &'a NapiEnv,
+    pub fn_name : String,
     pub argc : usize,
     pub argv : * const napi_value,
-    pub fn_name : String,
-    pub is_void : bool,
-    pub val_tx: Option<mpsc::Sender<napi_value>>,
+    pub val_tx: mpsc::Sender<Result<napi_value, NapiError>>,
 }
 
 impl NapiEnv {
@@ -104,16 +101,41 @@ impl NapiEnv {
     }
 
     extern "C" fn js_after_work_cb(req: * mut uv_work_t, _status: c_int) {
-        let mut result = null_mut();
         let args = unsafe { Box::from_raw((*req).data as * mut WorkArgs) };
-        let napi_status = unsafe { napi_call_function(args.env, args.obj, args.js_fn, args.argc, args.argv, & mut result) };
+        let mut arkts_obj = null_mut();
+
+        let napi_status = unsafe { napi_get_reference_value(args.env.raw_env, args.env.obj_ref, & mut arkts_obj)};
+        if napi_status!=Status::napi_ok {
+            crate::error!("failed to get value from reference");
+            let _ = args.val_tx.send(Err(NapiError::InvalidObjectValue));
+            return;
+        }
+
+        let fn_name = CString::new(args.fn_name.clone()).unwrap();
+        let mut js_fn = null_mut();
+        let napi_status = unsafe { napi_get_named_property(args.env.raw_env, arkts_obj, fn_name.as_ptr(), & mut js_fn)};
+        if napi_status != Status::napi_ok {
+            crate::error!("failed to get function {} from arkts object", args.fn_name);
+            let _ = args.val_tx.send(Err(NapiError::InvalidProperty));
+            return;
+        }
+
+        let mut napi_type: napi_valuetype = 0;
+        let _ = unsafe { napi_typeof(args.env.raw_env, js_fn, &mut napi_type) };
+        if napi_type != ValueType::napi_function {
+            crate::error!("property {} is not function",args.fn_name);
+            let _ = args.val_tx.send(Err(NapiError::InvalidFunction));
+            return;
+        }
+
+        let mut call_result = null_mut();
+        let napi_status = unsafe { napi_call_function(args.env.raw(), arkts_obj, js_fn, args.argc, args.argv, & mut call_result) };
         if napi_status != Status::napi_ok {
             crate::error!("failed to call js function:{}", args.fn_name);
+            let _ = args.val_tx.send(Err(NapiError::CallJsFailed));
+            return;
         }
-        if !args.is_void {
-            let _ = args.val_tx.unwrap().send(result);
-        }
-        Self::dealloca_work_s(req);
+
     }
 
     fn get_property(&self, name: &str) -> Result<napi_value, NapiError> {
@@ -177,46 +199,26 @@ impl NapiEnv {
         return Ok(result);
     }
 
-    pub fn call_js_function(&self, name: &str, argc: usize, argv: *const napi_value,is_void:bool) -> Result<napi_value, NapiError> {
-        let property = self.get_property(name)?;
-        let mut napi_type: napi_valuetype = 0;
-        let _ = unsafe { napi_typeof(self.raw_env, property, &mut napi_type) };
-        if napi_type != ValueType::napi_function {
-            crate::error!("{}' type expect to be function, current type is {}", name, Self::value_type_to_string(&napi_type));
-            return Err(NapiError::InvalidFunction);
-        }
-        let (tx,rx) = if is_void {
-            (None,None)
-        }else{
-            let(t,r) = mpsc::channel();
-            (Some(t),Some(r))
-        };
+    pub fn call_js_function(&self, name: &str, argc: usize, argv: *const napi_value) -> Result<napi_value, NapiError> {
+        let (tx,rx) =  mpsc::channel();
 
         let args = WorkArgs{
-            env:self.raw_env,
-            obj:self.get_ref_value()?,
-            js_fn:property,
+            env: &self,
+            fn_name:name.to_string(),
             argc:argc,
             argv:argv,
-            fn_name:name.to_string(),
-            is_void:is_void,
             val_tx:tx,
         };
         let req = Self::alloca_work_t(args);
         let uv_loop = self.get_loop()?;
         let _ = unsafe { uv_queue_work(uv_loop, req, Some(Self::js_work_cb), Some(Self::js_after_work_cb))};
-        if !is_void{
-            let result = rx.unwrap().recv();
-            match result {
-                Ok(ret) => return Ok(ret),
-                Err(e) => {
-                    crate::error!("call js falied, {}", e);
-                    return Err(NapiError::CallJsFailed)
-                }
-
+        match rx.recv(){
+            Ok(r) => r,
+            Err(e) =>{
+                crate::error!("failed to get result for js function {}, error = {}",name, e);
+                Err(NapiError::CallJsFailed)
             }
         }
-        return Ok(null_mut());
     }
 
     pub fn raw(&self) -> napi_env {
