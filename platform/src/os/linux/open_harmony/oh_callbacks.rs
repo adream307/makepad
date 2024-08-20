@@ -2,7 +2,6 @@ use self::super::oh_sys::*;
 use crate::area::Area;
 use crate::event::{TouchPoint, TouchState};
 use crate::makepad_math::*;
-use napi_derive_ohos::napi;
 use napi_ohos::{Env, JsObject, JsString, NapiRaw};
 use ohos_sys::xcomponent::{
     OH_NativeXComponent, OH_NativeXComponent_Callback, OH_NativeXComponent_GetTouchEvent,
@@ -14,13 +13,7 @@ use std::mem::MaybeUninit;
 use std::os::raw::c_void;
 use std::sync::mpsc;
 
-#[napi(object)]
-#[derive(Clone, Debug)]
-pub struct OpenHarmonyInitOptions {
-    pub device_type: String,
-    pub os_full_name: String,
-    pub display_density: f64,
-}
+use super::raw_file::RawFileMgr;
 
 unsafe impl Send for FromOhosMessage {}
 
@@ -213,10 +206,12 @@ pub fn debug_jsobject(obj: &JsObject, obj_name: &str) -> napi_ohos::Result<()> {
 #[derive(Debug)]
 pub enum FromOhosMessage {
     Init {
-        option: OpenHarmonyInitOptions,
+        device_type: String,
+        os_full_name: String,
+        display_density: f64,
         raw_env: napi_ohos::sys::napi_env,
         arkts_ref: napi_ohos::sys::napi_ref,
-        res_mgr: napi_ohos::sys::napi_value,
+        raw_file: RawFileMgr,
     },
     SurfaceChanged {
         window: *mut c_void,

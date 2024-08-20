@@ -5,51 +5,10 @@ use {
         oh_media::CxOpenHarmonyMedia,
         raw_file::*,
         oh_napi::NapiEnv,
-    }, super::oh_sys::uv_work_t, crate::{
-        cx::{Cx, OpenHarmonyParams, OsType}, cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace}, egl_sys::{self, LibEgl, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE}, event::{Event, TouchUpdateEvent, WindowGeom}, gpu_info::GpuPerformance, makepad_math::*, open_harmony::oh_sys::uv_queue_work, os::cx_native::EventFlow, pass::{CxPassParent, PassClearColor, PassClearDepth, PassId}, thread::SignalToUI, window::CxWindowPool
+    },  crate::{
+        cx::{Cx, OpenHarmonyParams, OsType}, cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace}, egl_sys::{self, LibEgl, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE}, event::{Event, TouchUpdateEvent, WindowGeom}, gpu_info::GpuPerformance, makepad_math::*, os::cx_native::EventFlow, pass::{CxPassParent, PassClearColor, PassClearDepth, PassId}, thread::SignalToUI, window::CxWindowPool
     }, napi_derive_ohos::napi, napi_ohos::{sys::*, Env, JsObject, NapiRaw}, std::{ffi::CString, os::raw::{c_int, c_void}, rc::Rc, sync::mpsc, time::Instant}
 };
-
-struct UvData {
-    env: napi_env,
-    arkts: napi_ref
-}
-
-// extern "C" fn call_js(env: napi_env, js_job: napi_value, _context: * mut c_void, data: * mut c_void) {
-//     let mut result = std::ptr::null_mut();
-//     let arkts_ptr = unsafe { Box::from_raw(data as * mut napi_value)};
-//     let state = unsafe { napi_call_function(env, arkts_ptr.as_ref().clone(), js_job, 0, std::ptr::null(), & mut result)};
-//     assert!(state==0);
-// }
-
-extern "C" fn js_work_cb(_req: * mut uv_work_t) {
-    crate::log!("============ js_work_cb ===========");
-}
-
-extern "C" fn js_after_work_cb(req: * mut uv_work_t, _status: c_int) {
-    crate::log!("=========== js_after_work_cb =======");
-    let d = unsafe { (*req).data};
-    let data = unsafe { Box::from_raw(d as * mut UvData) };
-
-    let mut arkts = std::ptr::null_mut();
-    let mut show = std::ptr::null_mut();
-    let status = unsafe {napi_get_reference_value(data.env, data.arkts, & mut arkts) };
-    assert!(status == 0);
-    let status = unsafe {napi_get_named_property(data.env, arkts, c"showInputText".as_ptr(), & mut show)};
-    assert!(status==0);
-
-    let mut napi_type: napi_valuetype = 0;
-    let status = unsafe { napi_typeof(data.env, show, &mut napi_type)};
-    assert!(status==0);
-    assert!(napi_type == napi_ohos::sys::ValueType::napi_function);
-
-    let mut result = std::ptr::null_mut();
-    let status = unsafe { napi_call_function(data.env, arkts, show, 0, std::ptr::null(), & mut result) };
-    assert!(status==0);
-    let layout = std::alloc::Layout::new::<uv_work_t>();
-    unsafe {std::alloc::dealloc(req as * mut u8, layout)};
-
-}
 
 #[napi]
 pub fn init_makepad(env: Env,  ark_ts: JsObject) -> napi_ohos::Result<()> {
@@ -67,19 +26,17 @@ pub fn init_makepad(env: Env,  ark_ts: JsObject) -> napi_ohos::Result<()> {
     let display_density = arkts_util.get_number("displayDensity").unwrap();
     let res_mgr = arkts_util.get_property("resMgr").unwrap();
 
+    let raw_file = RawFileMgr::new(raw_env, res_mgr);
+
     crate::log!("call initMakePad from XComponent.onLoad, device_type = {}, os_full_name = {}, display_density = {}", device_type, os_full_name, display_density);
 
-    let init_opts = OpenHarmonyInitOptions{
+    send_from_ohos_message(FromOhosMessage::Init {
         device_type,
         os_full_name,
-        display_density
-    };
-
-    send_from_ohos_message(FromOhosMessage::Init {
-        option: init_opts,
+        display_density,
         raw_env,
         arkts_ref,
-        res_mgr,
+        raw_file
     });
     Ok(())
 }
@@ -205,19 +162,19 @@ impl Cx {
                     loop {
                         match from_ohos_rx.recv() {
                             Ok(FromOhosMessage::Init {
-                                option,
+                                device_type,
+                                os_full_name,
+                                display_density,
                                 raw_env,
                                 arkts_ref,
-                                res_mgr,
+                                raw_file
                             }) => {
-                                self.os.dpi_factor = option.display_density;
-                                self.os.raw_env = raw_env;
-                                self.os.arkts_ref = arkts_ref;
-                                self.os.res_mgr = res_mgr;
+                                self.os.dpi_factor = display_density;
+                                self.os.raw_file = Some(raw_file);
                                 self.os_type = OsType::OpenHarmony(OpenHarmonyParams {
-                                    device_type: option.device_type,
-                                    os_full_name: option.os_full_name,
-                                    display_density: option.display_density,
+                                    device_type: device_type,
+                                    os_full_name: os_full_name,
+                                    display_density: display_density,
                                 });
                                 self.os.napi_env = Some(NapiEnv::new(raw_env, arkts_ref));
                                 break;
@@ -319,10 +276,9 @@ impl Cx {
     }
 
     pub fn ohos_load_dependencies(&mut self) {
-        let mut raw_mgr = RawFileMgr::new(self.os.raw_env, self.os.res_mgr);
         for (path, dep) in &mut self.dependencies {
             let mut buffer = Vec::<u8>::new();
-            if let Ok(_) = raw_mgr.read_to_end(path, &mut buffer) {
+            if let Ok(_) = self.os.raw_file.as_mut().unwrap().read_to_end(path, &mut buffer) {
                 dep.data = Some(Ok(Rc::new(buffer)));
             } else {
                 dep.data = Some(Err("read_to_end failed".to_string()));
@@ -439,33 +395,7 @@ impl Cx {
                     self.os.timers.stop_timer(timer_id);
                 }
                 CxOsOp::ShowTextIME(_area,_pos ) => {
-                    let result = self.os.napi_env.as_ref().unwrap().call_js_function("showInputText", 0, std::ptr::null_mut());
-                    match result {
-                        Ok(_) => {
-                            crate::log!("call showInputText success");
-                        },
-                        Err(_) => {
-                            crate::log!("call showInputText failed");
-                        }
-                    }
-                    //let arkts = NapiEnv::new(self.os.raw_env, self.os.arkts_ref);
-                    //let result = arkts.call_js_function("showInputText", 0, std::ptr::null_mut(), true);
-
-                    // let mut uv_loop = std::ptr::null_mut();
-                    // let status = unsafe { napi_get_uv_event_loop(self.os.raw_env, & mut uv_loop) };
-                    // assert!(status == 0);
-
-                    // let layout = std::alloc::Layout::new::<uv_work_t>();
-                    // let req = unsafe{std::alloc::alloc(layout) as * mut uv_work_t};
-                    // let data = UvData{
-                    //     env:self.os.raw_env,
-                    //     arkts:self.os.arkts_ref
-                    // };
-                    // let bdata = Box::new(data);
-                    // unsafe { (*req).data = Box::into_raw(bdata) as * mut c_void };
-
-                    // unsafe { uv_queue_work(uv_loop, req, Some(js_work_cb), Some(js_after_work_cb)) };
-
+                    let _ = self.os.napi_env.as_ref().unwrap().call_js_function("showInputText", 0, std::ptr::null_mut());
                 }
                 CxOsOp::HideTextIME => {
                     //self.os.keyboard_visible = false;
@@ -519,9 +449,7 @@ pub struct CxOs {
     pub media: CxOpenHarmonyMedia,
     pub quit: bool,
     pub timers: SelectTimers,
-    pub raw_env: napi_ohos::sys::napi_env,
-    pub arkts_ref: napi_ohos::sys::napi_ref,
-    pub res_mgr: napi_ohos::sys::napi_value,
+    pub raw_file:Option<RawFileMgr>,
     pub napi_env:Option<NapiEnv>,
     pub(crate) start_time: Instant,
     pub(crate) display: Option<CxOhosDisplay>,
@@ -535,9 +463,7 @@ impl Default for CxOs {
             media: Default::default(),
             quit: false,
             timers: SelectTimers::new(),
-            raw_env: std::ptr::null_mut(),
-            arkts_ref: std::ptr::null_mut(),
-            res_mgr: std::ptr::null_mut(),
+            raw_file: None,
             napi_env: None,
             start_time: Instant::now(),
             display: None,

@@ -39,7 +39,7 @@ extern "C" {
         length: ::core::ffi::c_ulong,
     ) -> ::core::ffi::c_int;
 }
-
+#[derive(Clone,Debug)]
 pub struct RawFileMgr {
     native_resource_manager: *mut NativeResourceManager,
 }
@@ -53,21 +53,6 @@ impl RawFileMgr {
         }
         Self {
             native_resource_manager,
-        }
-    }
-
-    fn to_string(val_type: &napi_valuetype) -> String {
-        match *val_type {
-            ValueType::napi_undefined => "undefined".to_string(),
-            ValueType::napi_null => "null".to_string(),
-            ValueType::napi_boolean => "boolean".to_string(),
-            ValueType::napi_number => "number".to_string(),
-            ValueType::napi_string => "string".to_string(),
-            ValueType::napi_symbol => "symbol".to_string(),
-            ValueType::napi_object => "object".to_string(),
-            ValueType::napi_function => "function".to_string(),
-            ValueType::napi_external => "external".to_string(),
-            _ => "undefined".to_string(),
         }
     }
 
