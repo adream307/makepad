@@ -53,21 +53,19 @@ extern "C" fn js_after_work_cb(req: * mut uv_work_t, _status: c_int) {
 
 #[napi]
 pub fn init_makepad(env: Env,  ark_ts: JsObject) -> napi_ohos::Result<()> {
-    let (raw_env, res_mgr) = match RawFileMgr::get_resource_manager(&env) {
-        Some((raw_env, res_mgr)) => (raw_env, res_mgr),
-        None => (std::ptr::null_mut(), std::ptr::null_mut()),
-    };
 
+    let raw_env = env.raw();
     let raw_ark = unsafe { ark_ts.raw() };
     let mut arkts_ref = std::ptr::null_mut();
 
     let status = unsafe { napi_create_reference(raw_env, raw_ark, 1,  & mut arkts_ref) };
     assert!(status == 0);
 
-    let arkts_util = NapiEnv::new(env.raw(), arkts_ref);
+    let arkts_util = NapiEnv::new(raw_env, arkts_ref);
     let device_type = arkts_util.get_string("deviceType").unwrap();
     let os_full_name = arkts_util.get_string("osFullName").unwrap();
     let display_density = arkts_util.get_number("displayDensity").unwrap();
+    let res_mgr = arkts_util.get_property("resMgr").unwrap();
 
     crate::log!("call initMakePad from XComponent.onLoad, device_type = {}, os_full_name = {}, display_density = {}", device_type, os_full_name, display_density);
 
