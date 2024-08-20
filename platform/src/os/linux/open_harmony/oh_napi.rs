@@ -1,4 +1,3 @@
-use makepad_futures::channel::oneshot::Receiver;
 use napi_ohos::sys::*;
 use super::oh_sys::*;
 use std::ffi::*;
@@ -18,6 +17,8 @@ pub enum NapiError {
     InvalidNumberValue,
     InvalidFunction,
     InvalidObjectValue,
+    InvalidUvLoop,
+    CallJsFailed,
     UnDefinedPropertyType,
 }
 
@@ -41,7 +42,6 @@ struct WorkArgs{
     pub fn_name : String,
     pub is_void : bool,
     pub val_tx: Option<mpsc::Sender<napi_value>>,
-    pub val_rx: Option<mpsc::Receiver<napi_value>>
 }
 
 impl NapiEnv {
@@ -52,7 +52,7 @@ impl NapiEnv {
         }
     }
 
-    pub fn get_ref_value(&self) -> Result<napi_value, NapiError> {
+    fn get_ref_value(&self) -> Result<napi_value, NapiError> {
         let mut result = null_mut();
         let napi_status = unsafe { napi_get_reference_value(self.raw_env, self.obj_ref, & mut result)};
         if napi_status!=Status::napi_ok {
@@ -60,6 +60,16 @@ impl NapiEnv {
             return Err(NapiError::InvalidObjectValue);
         }
         return Ok(result);
+    }
+
+    fn get_loop(&self) -> Result<* mut uv_loop_s, NapiError> {
+        let mut uv_loop = std::ptr::null_mut();
+        let napi_status = unsafe { napi_get_uv_event_loop(self.raw_env, & mut uv_loop) };
+        if napi_status!=Status::napi_ok {
+            crate::error!("failed to get uv loop from env");
+            return Err(NapiError::InvalidUvLoop);
+        }
+        return Ok(uv_loop);
     }
 
     fn alloca_work_t(args: WorkArgs) -> * mut uv_work_t {
@@ -103,6 +113,7 @@ impl NapiEnv {
         if !args.is_void {
             let _ = args.val_tx.unwrap().send(result);
         }
+        Self::dealloca_work_s(req);
     }
 
     fn get_property(&self, name: &str) -> Result<napi_value, NapiError> {
@@ -166,7 +177,7 @@ impl NapiEnv {
         return Ok(result);
     }
 
-    pub fn call_js_function(&self, name: &str, argc: usize, argv: *const napi_value,) -> Result<napi_value, NapiError> {
+    pub fn call_js_function(&self, name: &str, argc: usize, argv: *const napi_value,is_void:bool) -> Result<napi_value, NapiError> {
         let property = self.get_property(name)?;
         let mut napi_type: napi_valuetype = 0;
         let _ = unsafe { napi_typeof(self.raw_env, property, &mut napi_type) };
@@ -174,8 +185,38 @@ impl NapiEnv {
             crate::error!("{}' type expect to be function, current type is {}", name, Self::value_type_to_string(&napi_type));
             return Err(NapiError::InvalidFunction);
         }
-        return Ok(property);
+        let (tx,rx) = if is_void {
+            (None,None)
+        }else{
+            let(t,r) = mpsc::channel();
+            (Some(t),Some(r))
+        };
 
+        let args = WorkArgs{
+            env:self.raw_env,
+            obj:self.get_ref_value()?,
+            js_fn:property,
+            argc:argc,
+            argv:argv,
+            fn_name:name.to_string(),
+            is_void:is_void,
+            val_tx:tx,
+        };
+        let req = Self::alloca_work_t(args);
+        let uv_loop = self.get_loop()?;
+        let _ = unsafe { uv_queue_work(uv_loop, req, Some(Self::js_work_cb), Some(Self::js_after_work_cb))};
+        if !is_void{
+            let result = rx.unwrap().recv();
+            match result {
+                Ok(ret) => return Ok(ret),
+                Err(e) => {
+                    crate::error!("call js falied, {}", e);
+                    return Err(NapiError::CallJsFailed)
+                }
+
+            }
+        }
+        return Ok(null_mut());
     }
 
     pub fn raw(&self) -> napi_env {
