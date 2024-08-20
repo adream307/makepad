@@ -60,23 +60,22 @@ pub fn init_makepad(env: Env,  ark_ts: JsObject) -> napi_ohos::Result<()> {
 
     let raw_ark = unsafe { ark_ts.raw() };
     let mut arkts_ref = std::ptr::null_mut();
+
+    let status = unsafe { napi_create_reference(raw_env, raw_ark, 1,  & mut arkts_ref) };
+    assert!(status == 0);
+
     let arkts_util = NapiEnv::new(env.raw(), arkts_ref);
     let device_type = arkts_util.get_string("deviceType").unwrap();
     let os_full_name = arkts_util.get_string("osFullName").unwrap();
     let display_density = arkts_util.get_number("displayDensity").unwrap();
 
-    crate::log!("call initMakePad from XComponent.onLoad, display_density = {}", display_density);
+    crate::log!("call initMakePad from XComponent.onLoad, device_type = {}, os_full_name = {}, display_density = {}", device_type, os_full_name, display_density);
 
     let init_opts = OpenHarmonyInitOptions{
         device_type,
         os_full_name,
         display_density
     };
-
-    let status = unsafe { napi_create_reference(raw_env, raw_ark, 1,  & mut arkts_ref) };
-    assert!(status == 0);
-
-    crate::log!("get showInputText from object");
 
     send_from_ohos_message(FromOhosMessage::Init {
         option: init_opts,
