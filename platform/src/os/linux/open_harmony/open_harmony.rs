@@ -3,21 +3,33 @@ use {
         super::{gl_sys, select_timer::SelectTimers},
         oh_callbacks::*,
         oh_media::CxOpenHarmonyMedia,
-        raw_file::*,
         oh_napi::NapiEnv,
-    },  crate::{
-        cx::{Cx, OpenHarmonyParams, OsType}, cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace}, egl_sys::{self, LibEgl, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE}, event::{Event, TouchUpdateEvent, WindowGeom}, gpu_info::GpuPerformance, makepad_math::*, os::cx_native::EventFlow, pass::{CxPassParent, PassClearColor, PassClearDepth, PassId}, thread::SignalToUI, window::CxWindowPool
-    }, napi_derive_ohos::napi, napi_ohos::{sys::*, Env, JsObject, NapiRaw}, std::{ffi::CString, os::raw::{c_int, c_void}, rc::Rc, sync::mpsc, time::Instant}
+        raw_file::*,
+    },
+    crate::{
+        cx::{Cx, OpenHarmonyParams, OsType},
+        cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
+        egl_sys::{self, LibEgl, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE},
+        event::{Event, TouchUpdateEvent, WindowGeom},
+        gpu_info::GpuPerformance,
+        makepad_math::*,
+        os::cx_native::EventFlow,
+        pass::{CxPassParent, PassClearColor, PassClearDepth, PassId},
+        thread::SignalToUI,
+        window::CxWindowPool,
+    },
+    napi_derive_ohos::napi,
+    napi_ohos::{sys::*, Env, JsObject, NapiRaw},
+    std::{ffi::CString, os::raw::c_void, rc::Rc, sync::mpsc, time::Instant},
 };
 
 #[napi]
-pub fn init_makepad(env: Env,  ark_ts: JsObject) -> napi_ohos::Result<()> {
-
+pub fn init_makepad(env: Env, ark_ts: JsObject) -> napi_ohos::Result<()> {
     let raw_env = env.raw();
     let raw_ark = unsafe { ark_ts.raw() };
     let mut arkts_ref = std::ptr::null_mut();
 
-    let status = unsafe { napi_create_reference(raw_env, raw_ark, 1,  & mut arkts_ref) };
+    let status = unsafe { napi_create_reference(raw_env, raw_ark, 1, &mut arkts_ref) };
     assert!(status == 0);
 
     let arkts_util = NapiEnv::new(raw_env, arkts_ref);
@@ -36,7 +48,7 @@ pub fn init_makepad(env: Env,  ark_ts: JsObject) -> napi_ohos::Result<()> {
         display_density,
         raw_env,
         arkts_ref,
-        raw_file
+        raw_file,
     });
     Ok(())
 }
@@ -167,7 +179,7 @@ impl Cx {
                                 display_density,
                                 raw_env,
                                 arkts_ref,
-                                raw_file
+                                raw_file,
                             }) => {
                                 self.os.dpi_factor = display_density;
                                 self.os.raw_file = Some(raw_file);
@@ -278,7 +290,13 @@ impl Cx {
     pub fn ohos_load_dependencies(&mut self) {
         for (path, dep) in &mut self.dependencies {
             let mut buffer = Vec::<u8>::new();
-            if let Ok(_) = self.os.raw_file.as_mut().unwrap().read_to_end(path, &mut buffer) {
+            if let Ok(_) = self
+                .os
+                .raw_file
+                .as_mut()
+                .unwrap()
+                .read_to_end(path, &mut buffer)
+            {
                 dep.data = Some(Ok(Rc::new(buffer)));
             } else {
                 dep.data = Some(Err("read_to_end failed".to_string()));
@@ -394,8 +412,12 @@ impl Cx {
                 CxOsOp::StopTimer(timer_id) => {
                     self.os.timers.stop_timer(timer_id);
                 }
-                CxOsOp::ShowTextIME(_area,_pos ) => {
-                    let _ = self.os.napi_env.as_ref().unwrap().call_js_function("showInputText", 0, std::ptr::null_mut());
+                CxOsOp::ShowTextIME(_area, _pos) => {
+                    let _ = self.os.napi_env.as_ref().unwrap().call_js_function(
+                        "showInputText",
+                        0,
+                        std::ptr::null_mut(),
+                    );
                 }
                 CxOsOp::HideTextIME => {
                     //self.os.keyboard_visible = false;
@@ -413,7 +435,6 @@ impl CxOsApi for Cx {
         self.live_registry.borrow_mut().package_root = Some("makepad".to_string());
         self.live_expand();
         self.live_scan_dependencies();
-
     }
 
     fn spawn_thread<F>(&mut self, f: F)
@@ -449,8 +470,8 @@ pub struct CxOs {
     pub media: CxOpenHarmonyMedia,
     pub quit: bool,
     pub timers: SelectTimers,
-    pub raw_file:Option<RawFileMgr>,
-    pub napi_env:Option<NapiEnv>,
+    pub raw_file: Option<RawFileMgr>,
+    pub napi_env: Option<NapiEnv>,
     pub(crate) start_time: Instant,
     pub(crate) display: Option<CxOhosDisplay>,
 }
