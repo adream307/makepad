@@ -442,7 +442,15 @@ impl Cx {
                     self.os.timers.stop_timer(timer_id);
                 }
                 CxOsOp::ShowTextIME(_area,_pos ) => {
-                    self.os.napi_env.as_ref().unwrap().call_js_function("showInputText", 0, std::ptr::null_mut(), true);
+                    let result = self.os.napi_env.as_ref().unwrap().call_js_function("showInputText", 0, std::ptr::null_mut(), true);
+                    match result {
+                        Ok(_) => {
+                            crate::log!("call showInputText success");
+                        },
+                        Err(_) => {
+                            crate::log!("call showInputText failed");
+                        }
+                    }
                     //let arkts = NapiEnv::new(self.os.raw_env, self.os.arkts_ref);
                     //let result = arkts.call_js_function("showInputText", 0, std::ptr::null_mut(), true);
 
