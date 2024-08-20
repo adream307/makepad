@@ -222,6 +222,7 @@ impl Cx {
                                     os_full_name: option.os_full_name,
                                     display_density: option.display_density,
                                 });
+                                self.os.napi_env = Some(NapiEnv::new(raw_env, arkts_ref));
                                 break;
                             }
                             _ => {}
@@ -441,8 +442,9 @@ impl Cx {
                     self.os.timers.stop_timer(timer_id);
                 }
                 CxOsOp::ShowTextIME(_area,_pos ) => {
-                    let arkts = NapiEnv::new(self.os.raw_env, self.os.arkts_ref);
-                    let result = arkts.call_js_function("showInputText", 0, std::ptr::null_mut(), true);
+                    self.os.napi_env.as_ref().unwrap().call_js_function("showInputText", 0, std::ptr::null_mut(), true);
+                    //let arkts = NapiEnv::new(self.os.raw_env, self.os.arkts_ref);
+                    //let result = arkts.call_js_function("showInputText", 0, std::ptr::null_mut(), true);
 
                     // let mut uv_loop = std::ptr::null_mut();
                     // let status = unsafe { napi_get_uv_event_loop(self.os.raw_env, & mut uv_loop) };
@@ -515,6 +517,7 @@ pub struct CxOs {
     pub raw_env: napi_ohos::sys::napi_env,
     pub arkts_ref: napi_ohos::sys::napi_ref,
     pub res_mgr: napi_ohos::sys::napi_value,
+    pub napi_env:Option<NapiEnv>,
     pub(crate) start_time: Instant,
     pub(crate) display: Option<CxOhosDisplay>,
 }
@@ -530,6 +533,7 @@ impl Default for CxOs {
             raw_env: std::ptr::null_mut(),
             arkts_ref: std::ptr::null_mut(),
             res_mgr: std::ptr::null_mut(),
+            napi_env: None,
             start_time: Instant::now(),
             display: None,
         }
