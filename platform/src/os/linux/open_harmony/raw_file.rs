@@ -1,11 +1,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use napi_ohos::sys::{
-    napi_call_function, napi_env, napi_get_global, napi_get_named_property, napi_get_undefined,
-    napi_typeof, napi_value, napi_valuetype, Status, ValueType,
-};
-use napi_ohos::Env;
+use napi_ohos::sys::{napi_env, napi_value};
 use std::io::{Error, ErrorKind, Result};
 
 #[repr(C)]
@@ -39,7 +35,7 @@ extern "C" {
         length: ::core::ffi::c_ulong,
     ) -> ::core::ffi::c_int;
 }
-#[derive(Clone,Debug)]
+#[derive(Clone, Debug)]
 pub struct RawFileMgr {
     native_resource_manager: *mut NativeResourceManager,
 }

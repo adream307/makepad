@@ -14,10 +14,7 @@ pub struct OH_NativeVSync {
 #[link(name = "native_window")]
 #[link(name = "native_vsync")]
 extern "C" {
-    pub fn OH_NativeVSync_Create(
-        name: *const c_char,
-        length: c_uint,
-    ) -> *mut OH_NativeVSync;
+    pub fn OH_NativeVSync_Create(name: *const c_char, length: c_uint) -> *mut OH_NativeVSync;
     pub fn OH_NativeVSync_Destroy(nativeVsync: *mut OH_NativeVSync) -> c_void;
     pub fn OH_NativeVSync_RequestFrame(
         nativeVsync: *mut OH_NativeVSync,
