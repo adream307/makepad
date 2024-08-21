@@ -414,14 +414,14 @@ impl Cx {
                 }
                 CxOsOp::ShowTextIME(_area, _pos) => {
                     let _ = self.os.arkts_obj.as_ref().unwrap().call_js_function(
-                        "showInputText",
+                        "showKeyBoard",
                         0,
                         std::ptr::null_mut(),
                     );
                 }
                 CxOsOp::HideTextIME => {
                     let _ = self.os.arkts_obj.as_ref().unwrap().call_js_function(
-                        "hideInputText",
+                        "hideKeyBoard",
                         0,
                         std::ptr::null_mut());
                     //self.os.keyboard_visible = false;
