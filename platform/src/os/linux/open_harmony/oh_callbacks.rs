@@ -6,7 +6,7 @@ use napi_ohos::{Env, JsObject, JsString, NapiRaw};
 use ohos_sys::xcomponent::{
     OH_NativeXComponent, OH_NativeXComponent_Callback, OH_NativeXComponent_GetTouchEvent,
     OH_NativeXComponent_GetXComponentSize, OH_NativeXComponent_RegisterCallback,
-    OH_NativeXComponent_TouchEvent, OH_NativeXComponent_TouchEventType,
+    OH_NativeXComponent_TouchEvent, OH_NativeXComponent_TouchEventType,OH_NativeXComponent_RegisterKeyEventCallback
 };
 use std::cell::{Cell, RefCell};
 use std::mem::MaybeUninit;
@@ -137,6 +137,11 @@ extern "C" fn on_vsync_cb(_timestamp: ::core::ffi::c_longlong, data: *mut c_void
     //crate::log!("OnVSyncCallBack, timestamp = {}, register call back = {}",timestamp,res);
 }
 
+#[no_mangle]
+extern "C" fn on_key_event_cb ( component: *mut OH_NativeXComponent, window: *mut c_void) {
+    crate::log!("========== key event");
+}
+
 pub fn init_globals(from_ohos_tx: mpsc::Sender<FromOhosMessage>) {
     OHOS_MSG_TX.with(move |messages_tx| *messages_tx.borrow_mut() = Some(from_ohos_tx));
 }
@@ -165,10 +170,20 @@ pub fn register_xcomponent_callbacks(env: &Env, xcomponent: &JsObject) {
         OH_NativeXComponent_RegisterCallback(native_xcomponent, Box::leak(cbs) as *mut _)
     };
     if res != 0 {
-        crate::error!("Failed to register callbacks");
+        crate::error!("Failed to register XComponent callbacks");
     } else {
-        crate::log!("Registerd callbacks successfully");
+        crate::log!("Register XComponent callbacks successfully");
     }
+
+    let res = unsafe {
+        OH_NativeXComponent_RegisterKeyEventCallback(native_xcomponent, Some(on_key_event_cb))
+    };
+    if res != 0 {
+        crate::error!("Failed to register KeyEvent callback");
+    }else {
+        crate::log!("Register KeyEvent callback successfully");
+    }
+
 }
 
 pub fn register_vsync_callback(from_ohos_tx: mpsc::Sender<FromOhosMessage>) {
@@ -185,7 +200,7 @@ pub fn register_vsync_callback(from_ohos_tx: mpsc::Sender<FromOhosMessage>) {
     if res != 0 {
         crate::error!("Failed to register vsync callbacks");
     } else {
-        crate::log!("Registerd callbacks vsync successfully");
+        crate::log!("Registerd vsync callbacks successfully");
     }
 }
 
