@@ -33,9 +33,9 @@ pub fn init_makepad(env: Env, ark_ts: JsObject) -> napi_ohos::Result<()> {
     assert!(status == 0);
 
     let arkts_obj = ArkTsObjRef::new(raw_env, arkts_ref);
-    let device_type = arkts_obj.get_string("deviceType").unwrap();
-    let os_full_name = arkts_obj.get_string("osFullName").unwrap();
-    let display_density = arkts_obj.get_number("displayDensity").unwrap();
+    let device_type = arkts_obj.get_string("deviceType").unwrap_or("phone".to_string());
+    let os_full_name = arkts_obj.get_string("osFullName").unwrap_or("OpenHarmony".to_string());
+    let display_density = arkts_obj.get_number("displayDensity").unwrap_or(3.25);
     let res_mgr = arkts_obj.get_property("resMgr").unwrap();
 
     let raw_file = RawFileMgr::new(raw_env, res_mgr);
@@ -420,6 +420,10 @@ impl Cx {
                     );
                 }
                 CxOsOp::HideTextIME => {
+                    let _ = self.os.arkts_obj.as_ref().unwrap().call_js_function(
+                        "hideInputText",
+                        0,
+                        std::ptr::null_mut());
                     //self.os.keyboard_visible = false;
                     //unsafe {android_jni::to_java_show_keyboard(false);}
                 }
