@@ -3,8 +3,8 @@ use {
         super::{gl_sys, select_timer::SelectTimers},
         oh_callbacks::*,
         oh_media::CxOpenHarmonyMedia,
-        oh_napi::ArkTsObjRef,
-        raw_file::*,
+        arkts_obj_ref::ArkTsObjRef,
+        raw_file::RawFileMgr,
     },
     crate::{
         cx::{Cx, OpenHarmonyParams, OsType},
