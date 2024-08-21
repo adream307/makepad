@@ -176,6 +176,7 @@ pub fn register_xcomponent_callbacks(env: &Env, xcomponent: &JsObject) {
     }
 
     let res = unsafe {
+        OH_NativeXComponent_SetNeedSoftKeyboard(native_xcomponent,true);
         OH_NativeXComponent_RegisterKeyEventCallback(native_xcomponent, Some(on_key_event_cb))
     };
     if res != 0 {
