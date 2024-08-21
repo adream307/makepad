@@ -32,11 +32,11 @@ pub fn init_makepad(env: Env, ark_ts: JsObject) -> napi_ohos::Result<()> {
     let status = unsafe { napi_create_reference(raw_env, raw_ark, 1, &mut arkts_ref) };
     assert!(status == 0);
 
-    let arkts_util = ArkTsObjRef::new(raw_env, arkts_ref);
-    let device_type = arkts_util.get_string("deviceType").unwrap();
-    let os_full_name = arkts_util.get_string("osFullName").unwrap();
-    let display_density = arkts_util.get_number("displayDensity").unwrap();
-    let res_mgr = arkts_util.get_property("resMgr").unwrap();
+    let arkts_obj = ArkTsObjRef::new(raw_env, arkts_ref);
+    let device_type = arkts_obj.get_string("deviceType").unwrap();
+    let os_full_name = arkts_obj.get_string("osFullName").unwrap();
+    let display_density = arkts_obj.get_number("displayDensity").unwrap();
+    let res_mgr = arkts_obj.get_property("resMgr").unwrap();
 
     let raw_file = RawFileMgr::new(raw_env, res_mgr);
 
@@ -188,7 +188,7 @@ impl Cx {
                                     os_full_name: os_full_name,
                                     display_density: display_density,
                                 });
-                                self.os.napi_env = Some(ArkTsObjRef::new(raw_env, arkts_ref));
+                                self.os.arkts_obj = Some(ArkTsObjRef::new(raw_env, arkts_ref));
                                 break;
                             }
                             _ => {}
@@ -413,7 +413,7 @@ impl Cx {
                     self.os.timers.stop_timer(timer_id);
                 }
                 CxOsOp::ShowTextIME(_area, _pos) => {
-                    let _ = self.os.napi_env.as_ref().unwrap().call_js_function(
+                    let _ = self.os.arkts_obj.as_ref().unwrap().call_js_function(
                         "showInputText",
                         0,
                         std::ptr::null_mut(),
@@ -471,7 +471,7 @@ pub struct CxOs {
     pub quit: bool,
     pub timers: SelectTimers,
     pub raw_file: Option<RawFileMgr>,
-    pub napi_env: Option<ArkTsObjRef>,
+    pub arkts_obj: Option<ArkTsObjRef>,
     pub(crate) start_time: Instant,
     pub(crate) display: Option<CxOhosDisplay>,
 }
@@ -485,7 +485,7 @@ impl Default for CxOs {
             quit: false,
             timers: SelectTimers::new(),
             raw_file: None,
-            napi_env: None,
+            arkts_obj: None,
             start_time: Instant::now(),
             display: None,
         }
