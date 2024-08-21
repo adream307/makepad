@@ -65,7 +65,7 @@ impl From<NulError> for NapiError {
     }
 }
 
-pub struct NapiEnv {
+pub struct ArkTsObjRef {
     raw_env: napi_env,
     obj_ref: napi_ref,
     val_tx: mpsc::Sender<Result<napi_value, NapiError>>,
@@ -73,16 +73,16 @@ pub struct NapiEnv {
 }
 
 struct WorkArgs<'a> {
-    pub env: &'a NapiEnv,
+    pub env: &'a ArkTsObjRef,
     pub fn_name: String,
     pub argc: usize,
     pub argv: *const napi_value,
 }
 
-impl NapiEnv {
+impl ArkTsObjRef {
     pub fn new(env: napi_env, obj: napi_ref) -> Self {
         let (tx, rx) = mpsc::channel();
-        NapiEnv {
+        ArkTsObjRef {
             raw_env: env,
             obj_ref: obj,
             val_tx: tx,

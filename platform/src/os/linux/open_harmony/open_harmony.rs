@@ -3,7 +3,7 @@ use {
         super::{gl_sys, select_timer::SelectTimers},
         oh_callbacks::*,
         oh_media::CxOpenHarmonyMedia,
-        oh_napi::NapiEnv,
+        oh_napi::ArkTsObjRef,
         raw_file::*,
     },
     crate::{
@@ -32,7 +32,7 @@ pub fn init_makepad(env: Env, ark_ts: JsObject) -> napi_ohos::Result<()> {
     let status = unsafe { napi_create_reference(raw_env, raw_ark, 1, &mut arkts_ref) };
     assert!(status == 0);
 
-    let arkts_util = NapiEnv::new(raw_env, arkts_ref);
+    let arkts_util = ArkTsObjRef::new(raw_env, arkts_ref);
     let device_type = arkts_util.get_string("deviceType").unwrap();
     let os_full_name = arkts_util.get_string("osFullName").unwrap();
     let display_density = arkts_util.get_number("displayDensity").unwrap();
@@ -188,7 +188,7 @@ impl Cx {
                                     os_full_name: os_full_name,
                                     display_density: display_density,
                                 });
-                                self.os.napi_env = Some(NapiEnv::new(raw_env, arkts_ref));
+                                self.os.napi_env = Some(ArkTsObjRef::new(raw_env, arkts_ref));
                                 break;
                             }
                             _ => {}
@@ -471,7 +471,7 @@ pub struct CxOs {
     pub quit: bool,
     pub timers: SelectTimers,
     pub raw_file: Option<RawFileMgr>,
-    pub napi_env: Option<NapiEnv>,
+    pub napi_env: Option<ArkTsObjRef>,
     pub(crate) start_time: Instant,
     pub(crate) display: Option<CxOhosDisplay>,
 }
