@@ -89,7 +89,7 @@ pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
     let mut global_obj = std::ptr::null_mut();
     let napi_status = unsafe { napi_get_global(raw_env, &mut global_obj) };
     if napi_status != Status::napi_ok {
-        crate::log!("get global from env failed, error code = {}", napi_status);
+        crate::error!("get global from env failed, error code = {}", napi_status);
         return None;
     }
     crate::log!("get global from env success");
@@ -104,7 +104,7 @@ pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
         )
     };
     if napi_status != Status::napi_ok {
-        crate::log!(
+        crate::error!(
             "get globalThis from global failed, error code = {}",
             napi_status
         );
@@ -113,7 +113,7 @@ pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
     let mut napi_type: napi_valuetype = 0;
     let _ = unsafe { napi_typeof(raw_env, global_this, &mut napi_type) };
     if napi_type != ValueType::napi_object {
-        crate::log!(
+        crate::error!(
             "globalThis expect to be object, current data type = {}",
             value_type_to_string(&napi_type)
         );
@@ -131,7 +131,7 @@ pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
         )
     };
     if napi_status != Status::napi_ok {
-        crate::log!(
+        crate::error!(
             "get getContext from globalThis failed, error code = {}",
             napi_status
         );
@@ -140,7 +140,7 @@ pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
     napi_type = 0;
     let _ = unsafe { napi_typeof(raw_env, get_context_fn, &mut napi_type) };
     if napi_type != ValueType::napi_function {
-        crate::log!(
+        crate::error!(
             "getContext expect to be function, current data type = {}",
             value_type_to_string(&napi_type)
         );
@@ -164,13 +164,13 @@ pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
         )
     };
     if napi_status != Status::napi_ok {
-        crate::log!("call getContext() failed, error code = {}", napi_status);
+        crate::error!("call getContext() failed, error code = {}", napi_status);
         return None;
     }
     napi_type = 0;
     let _ = unsafe { napi_typeof(raw_env, get_context_result, &mut napi_type) };
     if napi_type != ValueType::napi_object {
-        crate::log!(
+        crate::error!(
             "getContext() result expect to be object, current data type = {}",
             value_type_to_string(&napi_type)
         );
@@ -180,9 +180,20 @@ pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
     return Some(get_context_result);
 }
 
-// pub fn get_files_dir(raw_env: napi_env) -> Option<String> {
-//     let ctx = get_global_context(raw_env);
-//     if ctx.is_none(){
-//         return None;
-//     }
-// }
+pub fn get_files_dir(raw_env: napi_env) -> Option<String> {
+    let ctx = get_global_context(raw_env);
+    if ctx.is_none(){
+        return None;
+    }
+    let file_dirs = get_object_property(raw_env, ctx?, "filesDir");
+    if file_dirs.is_none() {
+        crate::error!("failed to get filesDir from global context");
+        return None;
+    }
+    let str_val = get_value_string(raw_env, file_dirs?);
+    if str_val.is_none() {
+        crate::error!("getContext().fileDir is not string value");
+        return None;
+    }
+    return str_val;
+}
