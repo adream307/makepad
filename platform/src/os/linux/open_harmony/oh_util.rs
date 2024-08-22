@@ -1,12 +1,29 @@
 #[allow(dead_code)]
 use napi_ohos::sys::*;
+use std::ptr::null_mut;
+use std::ffi::CString;
+
+fn value_type_to_string(val_type: &napi_valuetype) -> String {
+    match *val_type {
+        ValueType::napi_undefined => "undefined".to_string(),
+        ValueType::napi_null => "null".to_string(),
+        ValueType::napi_boolean => "boolean".to_string(),
+        ValueType::napi_number => "number".to_string(),
+        ValueType::napi_string => "string".to_string(),
+        ValueType::napi_symbol => "symbol".to_string(),
+        ValueType::napi_object => "object".to_string(),
+        ValueType::napi_function => "function".to_string(),
+        ValueType::napi_external => "external".to_string(),
+        _ => "undefined".to_string(),
+    }
+}
 
 pub fn get_value_string(raw_env: napi_env, str_value: napi_value) -> Option<String> {
     let mut len = 0;
     let napi_status =
         unsafe { napi_get_value_string_utf8(raw_env, str_value, null_mut(), 0, &mut len) };
     if napi_status != Status::napi_ok {
-        crate::error!("failed to get string {} from napi_value", name);
+        crate::error!("failed to get string from napi_value");
         return None;
     }
 
@@ -16,7 +33,7 @@ pub fn get_value_string(raw_env: napi_env, str_value: napi_value) -> Option<Stri
     let mut written_char_count = 0;
     let napi_status = unsafe {
         napi_get_value_string_utf8(
-            self.raw_env,
+            raw_env,
             str_value,
             buf_ptr,
             len,
@@ -24,7 +41,7 @@ pub fn get_value_string(raw_env: napi_env, str_value: napi_value) -> Option<Stri
         )
     };
     if napi_status != Status::napi_ok {
-        crate::error!("failed to get string {} from napi_value", name);
+        crate::error!("failed to get string from napi_value");
         return None;
     }
 
@@ -34,20 +51,38 @@ pub fn get_value_string(raw_env: napi_env, str_value: napi_value) -> Option<Stri
     match String::from_utf8(bytes) {
         Err(e) => {
             crate::error!("failed to read utf8 string, {}", e);
-            Err(ArkTsObjErr::InvalidStringValue)
+            return None;
         }
-        Ok(s) => Ok(s),
+        Ok(s) => Some(s)
     }
 }
 
 pub fn get_value_f64(raw_env: napi_env, f64_value: napi_value) -> Option<f64> {
     let mut result: f64 = 0.0;
-    let napi_status = unsafe { napi_get_value_double(aw_env, f64_value, &mut result) };
+    let napi_status = unsafe { napi_get_value_double(raw_env, f64_value, &mut result) };
     if napi_status != Status::napi_ok {
-        crate::error!("failed to read double from property {}", name);
+        crate::error!("failed to get f64 value from napi_value");
         return None;
     }
-    return Ok(result);
+    return Some(result);
+}
+
+pub fn get_object_property(raw_env: napi_env, object_value: napi_value, property_name: &str) -> Option<napi_value>{
+    let cname = CString::new(property_name).ok()?;
+    let mut result = null_mut();
+    let napi_status =
+        unsafe { napi_get_named_property(raw_env, object_value, cname.as_ptr(), &mut result) };
+    if napi_status != Status::napi_ok {
+        crate::error!("get property {} failed", property_name);
+        return None;
+    }
+    let mut napi_type: napi_valuetype = 0;
+    let _ = unsafe { napi_typeof(raw_env, result, &mut napi_type) };
+    if napi_type == ValueType::napi_undefined {
+        crate::error!("property {} is undefined", property_name);
+        return None;
+    }
+    return Some(result);
 }
 
 pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
@@ -80,7 +115,7 @@ pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
     if napi_type != ValueType::napi_object {
         crate::log!(
             "globalThis expect to be object, current data type = {}",
-            Self::to_string(&napi_type)
+            value_type_to_string(&napi_type)
         );
         return None;
     }
@@ -107,7 +142,7 @@ pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
     if napi_type != ValueType::napi_function {
         crate::log!(
             "getContext expect to be function, current data type = {}",
-            Self::to_string(&napi_type)
+            value_type_to_string(&napi_type)
         );
         return None;
     }
@@ -137,12 +172,17 @@ pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
     if napi_type != ValueType::napi_object {
         crate::log!(
             "getContext() result expect to be object, current data type = {}",
-            Self::to_string(&napi_type)
+            value_type_to_string(&napi_type)
         );
         return None;
     }
     crate::log!("call getContext() succcess");
-    Ok(get_context_result)
+    return Some(get_context_result);
 }
 
-pub fn get_files_dir(raw_env: napi_env) -> Option<String> {}
+// pub fn get_files_dir(raw_env: napi_env) -> Option<String> {
+//     let ctx = get_global_context(raw_env);
+//     if ctx.is_none(){
+//         return None;
+//     }
+// }
