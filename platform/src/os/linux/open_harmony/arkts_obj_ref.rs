@@ -5,6 +5,7 @@ use napi_ohos::sys::*;
 use std::ffi::*;
 use std::ptr::null_mut;
 use std::sync::mpsc;
+use super::oh_util;
 
 // libuv
 
@@ -124,21 +125,6 @@ impl ArkTsObjRef {
         unsafe { std::alloc::dealloc(req as *mut u8, layout) };
     }
 
-    //fn value_type_to_string(val_type: &napi_valuetype) -> String {
-    //    match *val_type {
-    //        ValueType::napi_undefined => "undefined".to_string(),
-    //        ValueType::napi_null => "null".to_string(),
-    //        ValueType::napi_boolean => "boolean".to_string(),
-    //        ValueType::napi_number => "number".to_string(),
-    //        ValueType::napi_string => "string".to_string(),
-    //        ValueType::napi_symbol => "symbol".to_string(),
-    //        ValueType::napi_object => "object".to_string(),
-    //        ValueType::napi_function => "function".to_string(),
-    //        ValueType::napi_external => "external".to_string(),
-    //        _ => "undefined".to_string(),
-    //    }
-    //}
-
     extern "C" fn js_work_cb(_req: *mut uv_work_t) {}
 
     extern "C" fn js_after_work_cb(req: *mut uv_work_t, _status: c_int) {
@@ -192,73 +178,27 @@ impl ArkTsObjRef {
     }
 
     pub fn get_property(&self, name: &str) -> Result<napi_value, ArkTsObjErr> {
-        let cname = CString::new(name)?;
-        let mut result = null_mut();
         let object = self.get_ref_value()?;
-        let napi_status =
-            unsafe { napi_get_named_property(self.raw_env, object, cname.as_ptr(), &mut result) };
-        if napi_status != Status::napi_ok {
-            crate::error!("get property {} failed", name);
-            return Err(ArkTsObjErr::InvalidProperty);
+        match oh_util::get_object_property(self.raw_env, object, &name) {
+            Some(val) => Ok(val),
+            None => Err(ArkTsObjErr::InvalidProperty)
         }
-        let mut napi_type: napi_valuetype = 0;
-        let _ = unsafe { napi_typeof(self.raw_env, result, &mut napi_type) };
-        if napi_type == ValueType::napi_undefined {
-            crate::error!("property {} is undefined", name);
-            return Err(ArkTsObjErr::UnDefinedPropertyType);
-        }
-        return Ok(result);
     }
 
     pub fn get_string(&self, name: &str) -> Result<String, ArkTsObjErr> {
         let property = self.get_property(name)?;
-        let mut len = 0;
-        let napi_status =
-            unsafe { napi_get_value_string_utf8(self.raw_env, property, null_mut(), 0, &mut len) };
-        if napi_status != Status::napi_ok {
-            crate::error!("failed to get string {} from napi_value", name);
-            return Err(ArkTsObjErr::InvalidStringValue);
-        }
-
-        len += 1;
-        let mut ret = Vec::with_capacity(len);
-        let buf_ptr = ret.as_mut_ptr();
-        let mut written_char_count = 0;
-        let napi_status = unsafe {
-            napi_get_value_string_utf8(
-                self.raw_env,
-                property,
-                buf_ptr,
-                len,
-                &mut written_char_count,
-            )
-        };
-        if napi_status != Status::napi_ok {
-            crate::error!("failed to get string {} from napi_value", name);
-            return Err(ArkTsObjErr::InvalidStringValue);
-        }
-
-        let mut ret = std::mem::ManuallyDrop::new(ret);
-        let buf_ptr = ret.as_mut_ptr();
-        let bytes = unsafe { Vec::from_raw_parts(buf_ptr as *mut u8, written_char_count, len) };
-        match String::from_utf8(bytes) {
-            Err(e) => {
-                crate::error!("failed to read utf8 string, {}", e);
-                Err(ArkTsObjErr::InvalidStringValue)
-            }
-            Ok(s) => Ok(s),
+        match oh_util::get_value_string(self.raw_env, property) {
+            Some(val) => Ok(val),
+            None => Err(ArkTsObjErr::InvalidStringValue)
         }
     }
 
     pub fn get_number(&self, name: &str) -> Result<f64, ArkTsObjErr> {
         let property = self.get_property(name)?;
-        let mut result: f64 = 0.0;
-        let napi_status = unsafe { napi_get_value_double(self.raw_env, property, &mut result) };
-        if napi_status != Status::napi_ok {
-            crate::error!("failed to read double from property {}", name);
-            return Err(ArkTsObjErr::InvalidNumberValue);
+        match oh_util::get_value_f64(self.raw_env, property) {
+            Some(val) => Ok(val),
+            None => Err(ArkTsObjErr::InvalidNumberValue)
         }
-        return Ok(result);
     }
 
     pub fn call_js_function(
