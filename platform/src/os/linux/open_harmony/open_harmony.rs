@@ -1,22 +1,18 @@
 use {
     self::super::{
-        super::{gl_sys, select_timer::SelectTimers},
-        oh_callbacks::*,
-        oh_media::CxOpenHarmonyMedia,
-        arkts_obj_ref::ArkTsObjRef,
-        raw_file::RawFileMgr,
+        super::{gl_sys, select_timer::SelectTimers}, arkts_obj_ref::ArkTsObjRef, oh_callbacks::*, oh_media::CxOpenHarmonyMedia, raw_file::RawFileMgr
     },
     crate::{
         cx::{Cx, OpenHarmonyParams, OsType},
         cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
         egl_sys::{self, LibEgl, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE},
-        event::{Event, TouchUpdateEvent, WindowGeom, KeyEvent, KeyCode},
+        event::{Event, KeyCode, KeyEvent, TouchUpdateEvent, WindowGeom},
         gpu_info::GpuPerformance,
         makepad_math::*,
         os::cx_native::EventFlow,
         pass::{CxPassParent, PassClearColor, PassClearDepth, PassId},
         thread::SignalToUI,
-        window::CxWindowPool,
+        window::CxWindowPool, WindowGeomChangeEvent,
     },
     napi_derive_ohos::napi,
     napi_ohos::{sys::*, Env, JsObject, NapiRaw},
@@ -118,22 +114,65 @@ impl Cx {
     }
 
     fn handle_drawing(&mut self) {
-        if self.new_next_frames.len() != 0 {
-            self.call_next_frame_event(self.os.timers.time_now());
+        if self.any_passes_dirty() || self.need_redrawing() || !self.new_next_frames.is_empty() {
+            if !self.new_next_frames.is_empty() {
+                self.call_next_frame_event(self.os.timers.time_now());
+            }
+            if self.need_redrawing() {
+                self.call_draw_event();
+                self.opengl_compile_shaders();
+            }
+
+            if self.os.first_after_resize {
+                self.os.first_after_resize = false;
+                self.redraw_all();
+            }
+
+            self.handle_repaint();
         }
-        if self.need_redrawing() {
-            self.call_draw_event();
-            //direct_app.egl.make_current();
-            self.opengl_compile_shaders();
-        }
-        // ok here we send out to all our childprocesses
-        //profile_end("paint event handling", p);
-        //let p = profile_start();
-        self.handle_repaint();
     }
 
     fn handle_message(&mut self, msg: FromOhosMessage) {
         match msg {
+            FromOhosMessage::SurfaceCreated { window, width: _, height:_ } => unsafe {
+                self.os.display.as_mut().unwrap().update_surface(window);
+            }
+            FromOhosMessage::SurfaceDestroyed => unsafe {
+                self.os.display.as_mut().unwrap().destroy_surface();
+            }
+            FromOhosMessage::SurfaceChanged { window, width, height } => {
+                unsafe { self.os.display.as_mut().unwrap().update_surface(window); }
+                self.os.display_size = dvec2(width as f64, height as f64);
+                let window_id = CxWindowPool::id_zero();
+                let window = &mut self.windows[window_id];
+                let old_geom =  window.window_geom.clone();
+
+                let dpi_factor = window.dpi_override.unwrap_or(self.os.dpi_factor);
+                let size = self.os.display_size / dpi_factor;
+                window.window_geom = WindowGeom {
+                    dpi_factor,
+                    can_fullscreen:false,
+                    xr_is_presenting:false,
+                    is_fullscreen:true,
+                    is_topmost:true,
+                    position:dvec2(0.0, 0.0),
+                    inner_size: size,
+                    outer_size: size,
+                };
+                let new_geom = window.window_geom.clone();
+                self.call_event_handler(&Event::WindowGeomChange(WindowGeomChangeEvent{
+                    window_id,
+                    new_geom,
+                    old_geom
+                }));
+                if let Some(main_pass_id) = self.windows[window_id].main_pass_id {
+                    self.redraw_pass_and_child_passes(main_pass_id);
+                }
+                self.redraw_all();
+                self.os.first_after_resize = true;
+                self.call_event_handler(&Event::ClearAtlasses);
+
+            }
             FromOhosMessage::Touch(point) => {
                 let mut point = point;
                 let time = point.time;
@@ -178,7 +217,7 @@ impl Cx {
         }
     }
 
-    fn handle_surface_created(
+    fn wait_surface_created(
         &mut self,
         from_ohos_rx: &mpsc::Receiver<FromOhosMessage>,
     ) -> *mut c_void {
@@ -246,7 +285,7 @@ impl Cx {
             std::thread::spawn(move || {
                 let mut cx = startup();
                 let mut libegl = LibEgl::try_load().expect("can't load LibEGL");
-                let window = cx.handle_surface_created(&from_ohos_rx);
+                let window = cx.wait_surface_created(&from_ohos_rx);
                 cx.ohos_load_dependencies();
 
                 let (egl_context, egl_config, egl_display) = unsafe {
@@ -487,6 +526,7 @@ pub struct CxOhosDisplay {
 }
 
 pub struct CxOs {
+    pub first_after_resize: bool,
     pub display_size: DVec2,
     pub dpi_factor: f64,
     pub media: CxOpenHarmonyMedia,
@@ -501,6 +541,7 @@ pub struct CxOs {
 impl Default for CxOs {
     fn default() -> Self {
         Self {
+            first_after_resize: true,
             display_size: dvec2(1260 as f64, 2503 as f64),
             dpi_factor: 3.25,
             media: Default::default(),
@@ -515,57 +556,57 @@ impl Default for CxOs {
 }
 
 impl CxOhosDisplay {
-    //unsafe fn destroy_surface(&mut self) {
-    //    (self.libegl.eglMakeCurrent.unwrap())(
-    //        self.egl_display,
-    //        std::ptr::null_mut(),
-    //        std::ptr::null_mut(),
-    //        std::ptr::null_mut(),
-    //    );
-    //    (self.libegl.eglDestroySurface.unwrap())(self.egl_display, self.surface);
-    //    self.surface = std::ptr::null_mut();
-    //}
+    unsafe fn destroy_surface(&mut self) {
+       (self.libegl.eglMakeCurrent.unwrap())(
+           self.egl_display,
+           std::ptr::null_mut(),
+           std::ptr::null_mut(),
+           std::ptr::null_mut(),
+       );
+       (self.libegl.eglDestroySurface.unwrap())(self.egl_display, self.surface);
+       self.surface = std::ptr::null_mut();
+    }
 
-    //unsafe fn update_surface(&mut self, window: *mut c_void) {
-    //    if !self.window.is_null() {
-    //        //todo release window
-    //    }
-    //    self.window = window;
-    //    if self.surface.is_null() == false {
-    //        self.destroy_surface();
-    //    }
+    unsafe fn update_surface(&mut self, window: *mut c_void) {
+       if !self.window.is_null() {
+           //todo release window
+       }
+       self.window = window;
+       if self.surface.is_null() == false {
+           self.destroy_surface();
+       }
 
-    //    let win_attr = vec![EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE];
-    //    self.surface = (self.libegl.eglCreateWindowSurface.unwrap())(
-    //        self.egl_display,
-    //        self.egl_config,
-    //        self.window as _,
-    //        win_attr.as_ptr() as _,
-    //    );
+       let win_attr = vec![EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE];
+       self.surface = (self.libegl.eglCreateWindowSurface.unwrap())(
+           self.egl_display,
+           self.egl_config,
+           self.window as _,
+           win_attr.as_ptr() as _,
+       );
 
-    //    if self.surface.is_null() {
-    //        let err_code = unsafe { (self.libegl.eglGetError.unwrap())() };
-    //        crate::log!("eglCreateWindowSurface error code:{}", err_code);
-    //    }
+       if self.surface.is_null() {
+           let err_code = unsafe { (self.libegl.eglGetError.unwrap())() };
+           crate::log!("eglCreateWindowSurface error code:{}", err_code);
+       }
 
-    //    assert!(!self.surface.is_null());
+       assert!(!self.surface.is_null());
 
-    //    self.make_current();
-    //}
+       self.make_current();
+    }
 
     unsafe fn swap_buffers(&mut self) {
         (self.libegl.eglSwapBuffers.unwrap())(self.egl_display, self.surface);
     }
 
-    //unsafe fn make_current(&mut self) {
-    //    if (self.libegl.eglMakeCurrent.unwrap())(
-    //        self.egl_display,
-    //        self.surface,
-    //        self.surface,
-    //        self.egl_context,
-    //    ) == 0
-    //    {
-    //        panic!();
-    //    }
-    //}
+    unsafe fn make_current(&mut self) {
+       if (self.libegl.eglMakeCurrent.unwrap())(
+           self.egl_display,
+           self.surface,
+           self.surface,
+           self.egl_context,
+       ) == 0
+       {
+           panic!();
+       }
+    }
 }

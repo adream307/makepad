@@ -100,6 +100,7 @@ extern "C" fn on_surface_changed_cb(xcomponent: *mut OH_NativeXComponent, window
 #[no_mangle]
 extern "C" fn on_surface_destroyed_cb(_component: *mut OH_NativeXComponent, _window: *mut c_void) {
     crate::log!("OnSurcefaceDestroyCallBack");
+    send_from_ohos_message(FromOhosMessage::SurfaceDestroyed);
 }
 
 #[no_mangle]
@@ -243,6 +244,7 @@ pub enum FromOhosMessage {
         width: i32,
         height: i32,
     },
+    SurfaceDestroyed,
     VSync,
     Touch(TouchPoint),
     TextInput(TextInputEvent),
