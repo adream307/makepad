@@ -373,7 +373,7 @@ impl IosApp {
             replace_last: replace_last
         }))
     }
-    
+
     pub fn send_backspace() {
         let time = get_ios_app_global().time_now();
         IosApp::do_callback(IosEvent::KeyDown(KeyEvent {

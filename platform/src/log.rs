@@ -97,7 +97,7 @@ pub fn log_with_level(file_name:&str, line_start:u32, column_start:u32, line_end
                 LogLevel::Log => {hilog_sys::LogLevel::LOG_INFO}
                 _=> {hilog_sys::LogLevel::LOG_INFO}
             };
-            unsafe {hilog_sys::OH_LOG_Print(hilog_sys::LogType::LOG_APP,hilevel, 0,c"makepad-ohos".as_ptr(), c"%{public}s".as_ptr(),msg.as_ptr())};
+            unsafe {hilog_sys::OH_LOG_Print(hilog_sys::LogType::LOG_APP,hilevel, 0x03D00,c"makepad-ohos".as_ptr(), c"%{public}s".as_ptr(),msg.as_ptr())};
        }
     }
     else{
