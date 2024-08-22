@@ -85,7 +85,7 @@ pub fn get_object_property(raw_env: napi_env, object_value: napi_value, property
     return Some(result);
 }
 
-pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
+pub fn get_global_this(raw_env: napi_env) -> Option<napi_value> {
     let mut global_obj = std::ptr::null_mut();
     let napi_status = unsafe { napi_get_global(raw_env, &mut global_obj) };
     if napi_status != Status::napi_ok {
@@ -120,12 +120,20 @@ pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
         return None;
     }
     crate::log!("get globalThis from global success");
+    return Some(global_this);
+}
+
+pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
+    let global_this = get_global_this(raw_env);
+    if global_this.is_none() {
+        return None;
+    }
 
     let mut get_context_fn = std::ptr::null_mut();
     let napi_status = unsafe {
         napi_get_named_property(
             raw_env,
-            global_this,
+            global_this?,
             c"getContext".as_ptr(),
             &mut get_context_fn,
         )
@@ -137,7 +145,7 @@ pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
         );
         return None;
     }
-    napi_type = 0;
+    let mut napi_type: napi_valuetype = 0;
     let _ = unsafe { napi_typeof(raw_env, get_context_fn, &mut napi_type) };
     if napi_type != ValueType::napi_function {
         crate::error!(
