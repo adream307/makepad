@@ -483,7 +483,7 @@ impl App {
         let delay = self.ui.text_input(id!(settings_delay.input)).text().parse::<f64>().unwrap_or(1.0);
         self.delay_timer = cx.start_timeout(delay);
     }
-        
+
     fn render(&mut self, cx: &mut Cx) {
         let randomise = self.ui.check_box(id!(random_check_box)).selected(cx);
         let positive = self.ui.text_input(id!(positive)).text();

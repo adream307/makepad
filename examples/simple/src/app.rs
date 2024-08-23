@@ -63,6 +63,7 @@ app_main!(App);
 pub struct App {
     #[live] ui: WidgetRef,
     #[rust] counter: usize,
+    #[rust] delay_timer: Timer,
  }
  
 impl LiveRegister for App {
@@ -72,6 +73,18 @@ impl LiveRegister for App {
 }
 
 impl MatchEvent for App{
+    fn handle_startup(&mut self, cx: &mut Cx){
+        log!("============== start up ============");
+        self.delay_timer = cx.start_timeout(3.0);
+    }
+
+    fn handle_timer(&mut self, cx: &mut Cx, e:&TimerEvent){
+        if self.delay_timer.is_timer(e).is_some(){
+            log!("============== start timer=========");
+            cx.stop_timer(self.delay_timer);
+        }
+    }
+
     fn handle_actions(&mut self, cx: &mut Cx, actions:&Actions){
         if self.ui.button(id!(button1)).clicked(&actions) {
             log!("Press button {}", self.counter); 

@@ -801,9 +801,11 @@ impl Cx {
                     //xlib_app.set_mouse_cursor(cursor);
                 },
                 CxOsOp::StartTimer {timer_id, interval, repeats} => {
+                    crate::log!("============== CxOsOp::StartTimer =========");
                     self.os.timers.timers.insert(timer_id, PollTimer::new(interval, repeats));
                 },
                 CxOsOp::StopTimer(timer_id) => {
+                    crate::log!("============== CxOsOp::StopTimer =========");
                     self.os.timers.timers.remove(&timer_id);
                 },
                 CxOsOp::ShowTextIME(_area, _pos) => {
