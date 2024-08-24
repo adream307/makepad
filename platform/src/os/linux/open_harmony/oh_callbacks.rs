@@ -47,8 +47,14 @@ pub fn handle_insert_text_event(text:String) -> napi_ohos::Result<()>
 }
 
 #[napi]
-pub fn handle_delete_left_event(length: i32) ->napi_ohos::Result<()> {
+pub fn handle_delete_left_event(length: i32) -> napi_ohos::Result<()> {
     send_from_ohos_message(FromOhosMessage::DeleteLeft(length));
+    Ok(())
+}
+
+#[napi]
+pub fn handle_keyboard_status(is_open:bool, keyboard_height:f64) -> napi_ohos::Result<()> {
+    send_from_ohos_message(FromOhosMessage::ResizeTextIME(is_open, keyboard_height));
     Ok(())
 }
 
@@ -248,6 +254,7 @@ pub enum FromOhosMessage {
     VSync,
     Touch(TouchPoint),
     TextInput(TextInputEvent),
-    DeleteLeft(i32)
+    DeleteLeft(i32),
+    ResizeTextIME(bool, f64)
 }
 //TODO DIP

@@ -6,7 +6,7 @@ use {
         cx::{Cx, OpenHarmonyParams, OsType},
         cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
         egl_sys::{self, LibEgl, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE},
-        event::{Event, KeyCode, KeyEvent, TouchUpdateEvent, WindowGeom},
+        event::{Event, KeyCode, KeyEvent, TouchUpdateEvent,VirtualKeyboardEvent, WindowGeom},
         gpu_info::GpuPerformance,
         makepad_math::*,
         os::cx_native::EventFlow,
@@ -211,6 +211,19 @@ impl Cx {
                     self.call_event_handler(&Event::KeyDown(e.clone()));
                     self.keyboard.process_key_up(e.clone());
                     self.call_event_handler(&Event::KeyUp(e));
+                }
+            }
+            FromOhosMessage::ResizeTextIME(is_open, keyboard_height) => {
+                if is_open {
+                    self.call_event_handler(&Event::VirtualKeyboard(VirtualKeyboardEvent::DidShow {
+                        height: keyboard_height,
+                        time: self.os.timers.time_now()
+                    }))
+                } else {
+                    self.text_ime_was_dismissed();
+                    self.call_event_handler(&Event::VirtualKeyboard(VirtualKeyboardEvent::DidHide {
+                        time: self.os.timers.time_now()
+                    }))
                 }
             }
             _ => {}
