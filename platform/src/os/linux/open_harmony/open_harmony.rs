@@ -214,6 +214,7 @@ impl Cx {
                 }
             }
             FromOhosMessage::ResizeTextIME(is_open, keyboard_height) => {
+                let keyboard_height = (keyboard_height as f64) / self.os.dpi_factor;
                 if is_open {
                     self.call_event_handler(&Event::VirtualKeyboard(VirtualKeyboardEvent::DidShow {
                         height: keyboard_height,
