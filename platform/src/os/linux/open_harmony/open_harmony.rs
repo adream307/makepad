@@ -32,16 +32,22 @@ pub fn init_makepad(env: Env, ark_ts: JsObject) -> napi_ohos::Result<()> {
     let device_type = arkts_obj.get_string("deviceType").unwrap_or("phone".to_string());
     let os_full_name = arkts_obj.get_string("osFullName").unwrap_or("OpenHarmony".to_string());
     let display_density = arkts_obj.get_number("displayDensity").unwrap_or(3.25);
+    let files_dir = arkts_obj.get_string("filesDir").unwrap();
+    let cache_dir = arkts_obj.get_string("cacheDir").unwrap();
+    let temp_dir = arkts_obj.get_string("tempDir").unwrap();
     let res_mgr = arkts_obj.get_property("resMgr").unwrap();
 
     let raw_file = RawFileMgr::new(raw_env, res_mgr);
 
-    crate::log!("call initMakePad from XComponent.onLoad, device_type = {}, os_full_name = {}, display_density = {}", device_type, os_full_name, display_density);
+    crate::log!("call initMakePad from XComponent.onLoad, device_type = {}, os_full_name = {}, display_density = {}, files_dir = {}, cache_dir = {}, temp_dir = {}", device_type, os_full_name, display_density, files_dir,cache_dir,temp_dir);
 
     send_from_ohos_message(FromOhosMessage::Init {
         device_type,
         os_full_name,
         display_density,
+        files_dir,
+        cache_dir,
+        temp_dir,
         raw_env,
         arkts_ref,
         raw_file,
@@ -248,6 +254,9 @@ impl Cx {
                                 device_type,
                                 os_full_name,
                                 display_density,
+                                files_dir,
+                                cache_dir,
+                                temp_dir,
                                 raw_env,
                                 arkts_ref,
                                 raw_file,
@@ -255,9 +264,12 @@ impl Cx {
                                 self.os.dpi_factor = display_density;
                                 self.os.raw_file = Some(raw_file);
                                 self.os_type = OsType::OpenHarmony(OpenHarmonyParams {
-                                    device_type: device_type,
-                                    os_full_name: os_full_name,
-                                    display_density: display_density,
+                                    files_dir,
+                                    cache_dir,
+                                    temp_dir,
+                                    device_type,
+                                    os_full_name,
+                                    display_density,
                                 });
                                 self.os.arkts_obj = Some(ArkTsObjRef::new(raw_env, arkts_ref));
                                 break;
