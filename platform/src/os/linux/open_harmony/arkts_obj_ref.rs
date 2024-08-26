@@ -11,17 +11,12 @@ use super::uv_sys::*;
 #[derive(Clone, Debug)]
 pub enum ArkTsObjErr {
     NullError,
-    InvalidGlobal,
-    InvalidGlobalThis,
-    InvalidGlobalThisType,
     InvalidProperty,
     InvalidStringValue,
     InvalidNumberValue,
     InvalidFunction,
     InvalidObjectValue,
-    InvalidUvLoop,
     CallJsFailed,
-    UnDefinedPropertyType,
 }
 
 impl From<NulError> for ArkTsObjErr {
@@ -33,6 +28,7 @@ impl From<NulError> for ArkTsObjErr {
 pub struct ArkTsObjRef {
     raw_env: napi_env,
     obj_ref: napi_ref,
+    uv_loop : *mut uv_loop_t,
     val_tx: mpsc::Sender<Result<napi_value, ArkTsObjErr>>,
     val_rx: mpsc::Receiver<Result<napi_value, ArkTsObjErr>>,
     //---------- args for work cb
@@ -40,7 +36,6 @@ pub struct ArkTsObjRef {
     argc: usize,
     argv: *const napi_value,
     worker: * mut uv_work_t,
-    uv_loop : Option<* mut uv_loop_t>,
 }
 
 impl Drop for ArkTsObjRef {
@@ -57,9 +52,11 @@ impl ArkTsObjRef {
         let (tx, rx) = mpsc::channel();
         let layout = std::alloc::Layout::new::<uv_work_t>();
         let req = unsafe { std::alloc::alloc(layout) as *mut uv_work_t };
+        let uv_loop = oh_util::get_uv_loop(env).unwrap();
         ArkTsObjRef {
             raw_env: env,
             obj_ref: obj,
+            uv_loop:uv_loop,
             val_tx: tx,
             val_rx: rx,
             //---------
@@ -67,7 +64,6 @@ impl ArkTsObjRef {
             argc: 0,
             argv: null_mut(),
             worker: req,
-            uv_loop : None,
         }
     }
 
@@ -80,16 +76,6 @@ impl ArkTsObjRef {
             return Err(ArkTsObjErr::InvalidObjectValue);
         }
         return Ok(result);
-    }
-
-    fn get_loop(&mut self) -> Result<*mut uv_loop_s, ArkTsObjErr> {
-        if self.uv_loop.is_none(){
-            self.uv_loop = oh_util::get_uv_loop(self.raw_env);
-        }
-        match self.uv_loop{
-            Some(uv_loop) => Ok(uv_loop),
-            None => Err(ArkTsObjErr::InvalidUvLoop)
-        }
     }
 
     extern "C" fn js_work_cb(_req: *mut uv_work_t) {}
@@ -190,11 +176,9 @@ impl ArkTsObjRef {
         self.argv = argv;
         unsafe { (*(self.worker)).data = self.as_ptr() as * mut c_void;}
 
-        let uv_loop = self.get_loop()?;
-
         let _ = unsafe {
             uv_queue_work(
-                uv_loop,
+                self.uv_loop,
                 self.worker,
                 Some(Self::js_work_cb),
                 Some(Self::js_after_work_cb),
