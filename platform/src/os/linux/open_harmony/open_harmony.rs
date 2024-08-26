@@ -496,14 +496,14 @@ impl Cx {
                     self.os.timers.stop_timer(timer_id);
                 }
                 CxOsOp::ShowTextIME(_area, _pos) => {
-                    let _ = self.os.arkts_obj.as_ref().unwrap().call_js_function(
+                    let _ = self.os.arkts_obj.as_mut().unwrap().call_js_function(
                         "showKeyBoard",
                         0,
                         std::ptr::null_mut(),
                     );
                 }
                 CxOsOp::HideTextIME => {
-                    let _ = self.os.arkts_obj.as_ref().unwrap().call_js_function(
+                    let _ = self.os.arkts_obj.as_mut().unwrap().call_js_function(
                         "hideKeyBoard",
                         0,
                         std::ptr::null_mut());
