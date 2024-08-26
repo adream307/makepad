@@ -1,4 +1,7 @@
+use napi_ohos::sys::napi_env;
+use napi_ohos::sys::napi_value;
 use super::uv_sys::*;
+use super::oh_util;
 
 struct OhTimerWorker{
     timer_id : u64,
@@ -7,6 +10,8 @@ struct OhTimerWorker{
 }
 
 struct OhTimer{
+    raw_env : napi_env,
+    uv_loop : *mut uv_loop_t,
     timers : Vec<OhTimerWorker>
 }
 
@@ -22,14 +27,16 @@ impl Drop for OhTimer {
 }
 
 impl OhTimer{
-    pub fn new() ->Self {
+    pub fn new(env: napi_env) ->Self {
+        let uv_loop = oh_util::get_uv_loop(env).unwrap();
         OhTimer{
+            raw_env:env,
+            uv_loop,
             timers : Vec::new()
         }
     }
 
     pub fn start_timer(timer_id : u64, interval :f64, repeats: bool) {
-        
 
     }
 
