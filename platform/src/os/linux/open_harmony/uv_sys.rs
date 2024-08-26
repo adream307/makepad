@@ -134,4 +134,14 @@ extern "C" {
     pub fn uv_timer_stop(
         handle: *mut uv_timer_t
     ) -> c_int;
+
+    pub fn uv_async_init(
+        arg1: *mut uv_loop_t,
+        async_: *mut uv_async_t,
+        async_cb: uv_async_cb
+    ) -> c_int;
+
+    pub fn uv_async_send(
+        async_: *mut uv_async_t
+    ) -> c_int;
 }
