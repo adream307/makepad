@@ -16,6 +16,8 @@ pub type uv_handle_type = u32;
 pub type uv_close_cb = Option<unsafe extern "C" fn(handle: *mut uv_handle_t)>;
 pub type uv_handle_t = uv_handle_s;
 pub type uv_timer_cb = Option<unsafe extern "C" fn(handle: *mut uv_timer_t)>;
+pub type uv_async_t = uv_async_s;
+pub type uv_async_cb = Option<unsafe extern "C" fn(handle: *mut uv_async_t)>;
 
 #[repr(C)]
 pub struct uv_work_s {
@@ -75,6 +77,28 @@ pub union uv_timer_s__bindgen_ty_1 {
 
 #[repr(C)]
 pub union uv_handle_s__bindgen_ty_1 {
+    pub fd: c_int,
+    pub reserved: [*mut c_void; 4],
+    /* private fields */
+}
+
+#[repr(C)]
+pub struct uv_async_s {
+    pub data: *mut c_void,
+    pub loop_: *mut uv_loop_t,
+    pub type_: uv_handle_type,
+    pub close_cb: uv_close_cb,
+    pub handle_queue: [*mut c_void; 2],
+    pub u: uv_async_s__bindgen_ty_1,
+    pub next_closing: *mut uv_handle_t,
+    pub flags: c_uint,
+    pub async_cb: uv_async_cb,
+    pub queue: [*mut c_void; 2],
+    pub pending: c_int,
+}
+
+#[repr(C)]
+pub union uv_async_s__bindgen_ty_1 {
     pub fd: c_int,
     pub reserved: [*mut c_void; 4],
     /* private fields */
