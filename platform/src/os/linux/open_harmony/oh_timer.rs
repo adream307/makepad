@@ -70,8 +70,9 @@ impl OhTimer{
 
     pub fn start_timer(& mut self, timer_id : u64, interval :f64, repeats: bool) {
         let timer = self.get_unused_timer(timer_id,interval,repeats);
-        let worker =  self.get_unused_worker(timer);
-
+        let worker =  self.get_unused_worker();
+        let async_w = unsafe { (*worker).worker };
+        unsafe {uv_async_init(self.uv_loop, async_w, Some(Self::async_cb));}
     }
 
     fn get_unused_timer(& mut self, timer_id : u64, interval :f64, repeats: bool)->* mut OhUvTimer {
@@ -91,24 +92,22 @@ impl OhTimer{
         return self.timers.get_mut(idx).unwrap().as_mut_ptr();
     }
 
-    fn get_unused_worker(&mut self, timer : * mut OhUvTimer) -> * mut OhUvAsyncWorker {
+    fn get_unused_worker(&mut self) -> * mut OhUvAsyncWorker {
         for i in 0..self.workers.len() {
             if self.workers[i].used == false {
                 self.workers[i].used = true;
                 let worker = self.workers[i].worker;
-                unsafe  {(*worker).data = timer as * mut c_void };
                 return self.workers[i].as_mut_ptr();
             }
         }
         let layout = std::alloc::Layout::new::<uv_async_t>();
         let w = unsafe { std::alloc::alloc(layout) } as * mut uv_async_t;
-        unsafe  {(*w).data = timer as * mut c_void };
         self.workers.push(OhUvAsyncWorker{used:true,worker:w});
         let idx = self.workers.len() - 1;
         return self.workers.get_mut(idx).unwrap().as_mut_ptr();
     }
 
-    extern "C" fn timer_cb(handle: *mut uv_async_t) {
+    extern "C" fn async_cb(handle: *mut uv_async_t) {
 
     }
 
