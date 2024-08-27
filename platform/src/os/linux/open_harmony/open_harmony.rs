@@ -1,10 +1,11 @@
 use {
     self::super::{
-        super::{gl_sys, select_timer::SelectTimers}, arkts_obj_ref::ArkTsObjRef, oh_callbacks::*, oh_media::CxOpenHarmonyMedia, raw_file::RawFileMgr
+        super::gl_sys, arkts_obj_ref::ArkTsObjRef, oh_callbacks::*, oh_media::CxOpenHarmonyMedia, raw_file::RawFileMgr
     },
     crate::{
         cx::{Cx, OpenHarmonyParams, OsType},
         cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
+        cx_stdin::{PollTimers,PollTimer},
         egl_sys::{self, LibEgl, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE},
         event::{Event, KeyCode, KeyEvent, TouchUpdateEvent,VirtualKeyboardEvent, WindowGeom},
         gpu_info::GpuPerformance,
@@ -88,9 +89,9 @@ impl Cx {
 
     fn handle_other_events(&mut self) {
         // Timers
-        // for event in self.os.timers.get_dispatch() {
-        //     self.call_event_handler(&event);
-        // }
+        for event in self.os.timers.get_dispatch() {
+            self.call_event_handler(&event);
+        }
 
         // Signals
         if SignalToUI::check_and_clear_ui_signal() {
@@ -490,10 +491,10 @@ impl Cx {
                     interval,
                     repeats,
                 } => {
-                    self.os.timers.start_timer(timer_id, interval, repeats);
+                    self.os.timers.timers.insert(timer_id, PollTimer::new(interval,repeats));
                 }
                 CxOsOp::StopTimer(timer_id) => {
-                    self.os.timers.stop_timer(timer_id);
+                    self.os.timers.timers.remove(&timer_id);
                 }
                 CxOsOp::ShowTextIME(_area, _pos) => {
                     let _ = self.os.arkts_obj.as_mut().unwrap().call_js_function(
@@ -557,7 +558,7 @@ pub struct CxOs {
     pub dpi_factor: f64,
     pub media: CxOpenHarmonyMedia,
     pub quit: bool,
-    pub timers: SelectTimers,
+    pub timers: PollTimers,
     pub raw_file: Option<RawFileMgr>,
     pub arkts_obj: Option<ArkTsObjRef>,
     pub(crate) start_time: Instant,
@@ -572,7 +573,7 @@ impl Default for CxOs {
             dpi_factor: 3.25,
             media: Default::default(),
             quit: false,
-            timers: SelectTimers::new(),
+            timers: Default::default(),
             raw_file: None,
             arkts_obj: None,
             start_time: Instant::now(),
