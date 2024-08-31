@@ -79,6 +79,7 @@ extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, window
         width: width as i32,
         height: height as i32,
     });
+    unsafe { OH_NativeXComponent_RegisterOnFrameCallback(xcomponent, Some(on_frame_cb))};
 }
 
 #[no_mangle]
@@ -163,6 +164,12 @@ extern "C" fn on_vsync_cb(_timestamp: ::core::ffi::c_longlong, data: *mut c_void
     }
     //crate::log!("OnVSyncCallBack, timestamp = {}, register call back = {}",timestamp,res);
 }
+
+#[no_mangle]
+extern "C" fn on_frame_cb(_component: *mut OH_NativeXComponent, _timestamp: u64, _target_timestamp: u64) {
+    send_from_ohos_message(FromOhosMessage::VSync);
+}
+
 
 pub fn init_globals(from_ohos_tx: mpsc::Sender<FromOhosMessage>) {
     OHOS_MSG_TX.with(move |messages_tx| *messages_tx.borrow_mut() = Some(from_ohos_tx));

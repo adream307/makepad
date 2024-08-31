@@ -362,7 +362,7 @@ impl Cx {
                     window,
                 });
 
-                register_vsync_callback(from_ohos_tx);
+                //register_vsync_callback(from_ohos_tx);
                 cx.main_loop(from_ohos_rx);
                 //TODO, destroy surface
             });

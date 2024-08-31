@@ -28,4 +28,15 @@ extern "C" {
     ) -> c_int;
     pub fn OH_NativeXComponent_SetNeedSoftKeyboard (component : *mut OH_NativeXComponent,needSoftKeyboard: bool )->c_int;
 
+    pub fn OH_NativeXComponent_RegisterOnFrameCallback(
+        component: *mut OH_NativeXComponent,
+        callback: ::core::option::Option<
+            unsafe extern "C" fn(
+                component: *mut OH_NativeXComponent,
+                timestamp: u64,
+                targetTimestamp: u64,
+            ),
+        >,
+    ) -> i32;
+
 }
