@@ -6,7 +6,7 @@ use {
         cx::{Cx, OpenHarmonyParams, OsType},
         cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
         cx_stdin::{PollTimers,PollTimer},
-        egl_sys::{self, LibEgl, EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE},
+        egl_sys::{self, LibEgl, EGL_NONE},
         event::{Event, KeyCode, KeyEvent, TouchUpdateEvent,VirtualKeyboardEvent, WindowGeom},
         gpu_info::GpuPerformance,
         makepad_math::*,
@@ -325,7 +325,7 @@ impl Cx {
                     })
                 };
 
-                let win_attr = vec![EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE];
+                let win_attr = vec![EGL_NONE];
                 let surface = unsafe {
                     (libegl.eglCreateWindowSurface.unwrap())(
                         egl_display,
@@ -603,7 +603,7 @@ impl CxOhosDisplay {
            self.destroy_surface();
        }
 
-       let win_attr = vec![EGL_GL_COLORSPACE_KHR, EGL_GL_COLORSPACE_SRGB_KHR, EGL_NONE];
+       let win_attr = vec![EGL_NONE];
        self.surface = (self.libegl.eglCreateWindowSurface.unwrap())(
            self.egl_display,
            self.egl_config,

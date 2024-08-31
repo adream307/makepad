@@ -528,19 +528,23 @@ pub unsafe  fn create_egl_context(
         EGL_ALPHA_SIZE, 8,
         EGL_RENDERABLE_TYPE,
         EGL_OPENGL_ES2_BIT,
+        EGL_DEPTH_SIZE, 0,
+        EGL_STENCIL_SIZE, 0,
         EGL_NONE
     ];
-    let available_cfgs: Vec<EGLConfig> = vec![null_mut(); 32];
+    let available_cfgs: Vec<EGLConfig> = vec![null_mut(); 1];
     let mut cfg_count = 0;
 
     if (egl.eglChooseConfig.unwrap())(
         display,
         cfg_attributes.as_ptr() as _,
         available_cfgs.as_ptr() as _,
-        32,&mut cfg_count as *mut _ as *mut _,
+        1,&mut cfg_count as *mut _ as *mut _,
     ) == 0 {
         return Err(EglError::ChooseConfigFailed);
     }
+
+    assert!(cfg_count > 0);
 
     let config = available_cfgs[0];
 
