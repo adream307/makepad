@@ -79,7 +79,6 @@ extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, window
         width: width as i32,
         height: height as i32,
     });
-    unsafe { OH_NativeXComponent_RegisterOnFrameCallback(xcomponent, Some(on_frame_cb))};
 }
 
 #[no_mangle]
@@ -221,6 +220,11 @@ pub fn register_vsync_callback(from_ohos_tx: mpsc::Sender<FromOhosMessage>) {
     } else {
         crate::log!("Registerd vsync callbacks successfully");
     }
+}
+
+pub fn register_on_frame_callback(xcomponent: *mut OH_NativeXComponent)
+{
+    unsafe { OH_NativeXComponent_RegisterOnFrameCallback(xcomponent, Some(on_frame_cb))};
 }
 
 #[allow(unused)]

@@ -5,7 +5,7 @@ use {
     crate::{
         cx::{Cx, OpenHarmonyParams, OsType},
         cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
-        cx_stdin::{PollTimers,PollTimer},
+        cx_stdin::{PollTimer, PollTimers},
         egl_sys::{self, LibEgl, EGL_NONE},
         event::{Event, KeyCode, KeyEvent, TouchUpdateEvent,VirtualKeyboardEvent, WindowGeom},
         gpu_info::GpuPerformance,
@@ -17,15 +17,8 @@ use {
     },
     napi_derive_ohos::napi,
     napi_ohos::{sys::*, Env, JsObject, NapiRaw},
-    std::{ffi::CString, os::raw::c_void, rc::Rc, sync::mpsc, time::Instant},
+    std::{ffi::CString, os::raw::c_void, ptr::null_mut, rc::Rc, sync::mpsc, time::Instant},
 };
-
-#[napi]
-pub fn start_makepad(_env: Env, _ark_ts: JsObject) -> napi_ohos::Result<()> {
-    crate::log!("================");
-    Ok(())
-}
-
 
 #[napi]
 pub fn init_makepad(env: Env, ark_ts: JsObject) -> napi_ohos::Result<()> {
@@ -245,57 +238,49 @@ impl Cx {
         }
     }
 
+    fn wait_init(
+        &mut self,
+        from_ohos_rx: &mpsc::Receiver<FromOhosMessage>,
+    ) -> bool {
+        if let Ok(FromOhosMessage::Init {
+            device_type,
+            os_full_name,
+            display_density,
+            files_dir,
+            cache_dir,
+            temp_dir,
+            raw_env,
+            arkts_ref,
+            raw_file })=from_ohos_rx.recv() {
+            self.os.dpi_factor = display_density;
+            self.os.raw_file = Some(raw_file);
+            self.os_type = OsType::OpenHarmony(OpenHarmonyParams {
+                files_dir,
+                cache_dir,
+                temp_dir,
+                device_type,
+                os_full_name,
+                display_density,
+            });
+            self.os.arkts_obj = Some(ArkTsObjRef::new(raw_env, arkts_ref));
+            return true;
+        } else {
+            crate::error!("Cant' recv Init from arkts");
+            return false;
+        }
+    }
+
     fn wait_surface_created(
         &mut self,
         from_ohos_rx: &mpsc::Receiver<FromOhosMessage>,
     ) -> *mut c_void {
-        loop {
-            match from_ohos_rx.recv() {
-                Ok(FromOhosMessage::SurfaceCreated {
-                    window,
-                    width,
-                    height,
-                }) => {
-                    loop {
-                        match from_ohos_rx.recv() {
-                            Ok(FromOhosMessage::Init {
-                                device_type,
-                                os_full_name,
-                                display_density,
-                                files_dir,
-                                cache_dir,
-                                temp_dir,
-                                raw_env,
-                                arkts_ref,
-                                raw_file,
-                            }) => {
-                                self.os.dpi_factor = display_density;
-                                self.os.raw_file = Some(raw_file);
-                                self.os_type = OsType::OpenHarmony(OpenHarmonyParams {
-                                    files_dir,
-                                    cache_dir,
-                                    temp_dir,
-                                    device_type,
-                                    os_full_name,
-                                    display_density,
-                                });
-                                self.os.arkts_obj = Some(ArkTsObjRef::new(raw_env, arkts_ref));
-                                break;
-                            }
-                            _ => {}
-                        }
-                    }
-                    self.os.display_size = dvec2(width as f64, height as f64);
-                    crate::log!(
-                        "handle surface created, width={}, height={}, display_density={}",
-                        width,
-                        height,
-                        self.os.dpi_factor
-                    );
-                    return window;
-                }
-                _ => {}
-            }
+        if let Ok(FromOhosMessage::SurfaceCreated { window, width, height }) = from_ohos_rx.recv() {
+            self.os.display_size = dvec2(width as f64, height as f64);
+            crate::log!("handle surface created, width={}, height={}, display_density={}", width, height, self.os.dpi_factor);
+            return window;
+        } else {
+            crate::error!("Can't recv SurfaceCreated from arkts");
+            return null_mut();
         }
     }
 
@@ -318,10 +303,11 @@ impl Cx {
 
             std::thread::spawn(move || {
                 let mut cx = startup();
-                let mut libegl = LibEgl::try_load().expect("can't load LibEGL");
+                assert!(cx.wait_init(&from_ohos_rx));
                 let window = cx.wait_surface_created(&from_ohos_rx);
                 cx.ohos_load_dependencies();
 
+                let mut libegl = LibEgl::try_load().expect("can't load LibEGL");
                 let (egl_context, egl_config, egl_display) = unsafe {
                     egl_sys::create_egl_context(&mut libegl).expect("Can't create EGL context")
                 };
@@ -369,7 +355,7 @@ impl Cx {
                     window,
                 });
 
-                //register_vsync_callback(from_ohos_tx);
+                register_vsync_callback(from_ohos_tx);
                 cx.main_loop(from_ohos_rx);
                 //TODO, destroy surface
             });
