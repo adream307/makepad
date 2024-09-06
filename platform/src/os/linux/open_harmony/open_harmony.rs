@@ -21,6 +21,13 @@ use {
 };
 
 #[napi]
+pub fn start_makepad(_env: Env, _ark_ts: JsObject) -> napi_ohos::Result<()> {
+    crate::log!("================");
+    Ok(())
+}
+
+
+#[napi]
 pub fn init_makepad(env: Env, ark_ts: JsObject) -> napi_ohos::Result<()> {
     let raw_env = env.raw();
     let raw_ark = unsafe { ark_ts.raw() };
