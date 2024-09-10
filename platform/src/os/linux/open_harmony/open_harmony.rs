@@ -20,8 +20,8 @@ use {
     std::{ffi::CString, os::raw::c_void, ptr::null_mut, rc::Rc, sync::mpsc, time::Instant},
 };
 
-#[napi]
-pub fn init_makepad(env: Env, ark_ts: JsObject) -> napi_ohos::Result<()> {
+#[napi(js_name="onCreate")]
+pub fn ohos_ability_on_create(env: Env, ark_ts: JsObject) -> napi_ohos::Result<()> {
     let raw_env = env.raw();
     let raw_ark = unsafe { ark_ts.raw() };
     let mut arkts_ref = std::ptr::null_mut();
@@ -289,79 +289,88 @@ impl Cx {
         F: FnOnce() -> Box<Cx> + Send + 'static,
     {
         crate::log!("ohos init");
-        std::panic::set_hook(Box::new(|info| {
-            crate::log!("custom panic hook: {}", info);
-        }));
+        static ONCE: std::sync::Once = std::sync::Once::new();
+        ONCE.call_once(move || {
+            std::panic::set_hook(Box::new(|info| {
+                crate::log!("custom panic hook: {}", info);
+            }));
+            Cx::ohos_startup(startup);
+        });
 
         if let Ok(xcomponent) = exports.get_named_property::<JsObject>("__NATIVE_XCOMPONENT_OBJ__")
         {
-            let (from_ohos_tx, from_ohos_rx) = mpsc::channel();
-            let ohos_tx = from_ohos_tx.clone();
-            init_globals(ohos_tx);
-
             register_xcomponent_callbacks(&env, &xcomponent);
-
-            std::thread::spawn(move || {
-                let mut cx = startup();
-                assert!(cx.wait_init(&from_ohos_rx));
-                let window = cx.wait_surface_created(&from_ohos_rx);
-                cx.ohos_load_dependencies();
-
-                let mut libegl = LibEgl::try_load().expect("can't load LibEGL");
-                let (egl_context, egl_config, egl_display) = unsafe {
-                    egl_sys::create_egl_context(&mut libegl).expect("Can't create EGL context")
-                };
-                unsafe {
-                    gl_sys::load_with(|s| {
-                        let s = CString::new(s).unwrap();
-                        libegl.eglGetProcAddress.unwrap()(s.as_ptr())
-                    })
-                };
-
-                let win_attr = vec![EGL_NONE];
-                let surface = unsafe {
-                    (libegl.eglCreateWindowSurface.unwrap())(
-                        egl_display,
-                        egl_config,
-                        window as _,
-                        win_attr.as_ptr() as _,
-                    )
-                };
-
-                if surface.is_null() {
-                    let err_code = unsafe { (libegl.eglGetError.unwrap())() };
-                    crate::log!("eglCreateWindowSurface error code:{}", err_code);
-                }
-                assert!(!surface.is_null());
-
-                crate::log!("eglCreateWindowSurface success");
-                unsafe {
-                    (libegl.eglSwapBuffers.unwrap())(egl_display, surface);
-                }
-
-                if unsafe {
-                    (libegl.eglMakeCurrent.unwrap())(egl_display, surface, surface, egl_context)
-                } == 0
-                {
-                    panic!();
-                }
-
-                cx.os.display = Some(CxOhosDisplay {
-                    libegl,
-                    egl_display,
-                    egl_config,
-                    egl_context,
-                    surface,
-                    window,
-                });
-
-                register_vsync_callback(from_ohos_tx);
-                cx.main_loop(from_ohos_rx);
-                //TODO, destroy surface
-            });
         } else {
             crate::log!("Failed to get xcomponent in ohos_init");
         }
+    }
+
+    fn ohos_startup<F>(startup: F) where F: FnOnce() -> Box<Cx> + Send + 'static {
+        crate::log!("ohos startup");
+        let (from_ohos_tx, from_ohos_rx) = mpsc::channel();
+        let ohos_tx = from_ohos_tx.clone();
+        init_globals(ohos_tx);
+
+        std::thread::spawn(move || {
+            let mut cx = startup();
+            assert!(cx.wait_init(&from_ohos_rx));
+            cx.ohos_load_dependencies();
+
+            let window = cx.wait_surface_created(&from_ohos_rx);
+
+            let mut libegl = LibEgl::try_load().expect("can't load LibEGL");
+            let (egl_context, egl_config, egl_display) = unsafe {
+                egl_sys::create_egl_context(&mut libegl).expect("Can't create EGL context")
+            };
+            unsafe {
+                gl_sys::load_with(|s| {
+                    let s = CString::new(s).unwrap();
+                    libegl.eglGetProcAddress.unwrap()(s.as_ptr())
+                })
+            };
+
+            let win_attr = vec![EGL_NONE];
+            let surface = unsafe {
+                (libegl.eglCreateWindowSurface.unwrap())(
+                    egl_display,
+                    egl_config,
+                    window as _,
+                    win_attr.as_ptr() as _,
+                )
+            };
+
+            if surface.is_null() {
+                let err_code = unsafe { (libegl.eglGetError.unwrap())() };
+                crate::log!("eglCreateWindowSurface error code:{}", err_code);
+            }
+            assert!(!surface.is_null());
+
+            crate::log!("eglCreateWindowSurface success");
+            unsafe {
+                (libegl.eglSwapBuffers.unwrap())(egl_display, surface);
+            }
+
+            if unsafe {
+                (libegl.eglMakeCurrent.unwrap())(egl_display, surface, surface, egl_context)
+            } == 0
+            {
+                panic!();
+            }
+
+            cx.os.display = Some(CxOhosDisplay {
+                libegl,
+                egl_display,
+                egl_config,
+                egl_context,
+                surface,
+                window,
+            });
+
+            register_vsync_callback(from_ohos_tx);
+            cx.main_loop(from_ohos_rx);
+            //TODO, destroy surface
+        });
+
     }
 
     pub fn ohos_load_dependencies(&mut self) {
