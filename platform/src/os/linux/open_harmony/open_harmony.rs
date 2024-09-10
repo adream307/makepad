@@ -40,7 +40,7 @@ pub fn ohos_ability_on_create(env: Env, ark_ts: JsObject) -> napi_ohos::Result<(
 
     let raw_file = RawFileMgr::new(raw_env, res_mgr);
 
-    crate::log!("call initMakePad from XComponent.onLoad, device_type = {}, os_full_name = {}, display_density = {}, files_dir = {}, cache_dir = {}, temp_dir = {}", device_type, os_full_name, display_density, files_dir,cache_dir,temp_dir);
+    crate::log!("call onCreate, device_type = {}, os_full_name = {}, display_density = {}, files_dir = {}, cache_dir = {}, temp_dir = {}", device_type, os_full_name, display_density, files_dir,cache_dir,temp_dir);
 
     send_from_ohos_message(FromOhosMessage::Init {
         device_type,
