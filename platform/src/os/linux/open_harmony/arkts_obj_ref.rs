@@ -6,7 +6,7 @@ use std::ffi::*;
 use std::ptr::null_mut;
 use std::sync::mpsc;
 use super::oh_util;
-use super::uv_sys::*;
+use super::oh_sys::*;
 
 #[derive(Clone, Debug)]
 pub enum ArkTsObjErr {
