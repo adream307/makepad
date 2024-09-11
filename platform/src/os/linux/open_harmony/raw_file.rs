@@ -3,38 +3,8 @@
 
 use napi_ohos::sys::{napi_env, napi_value};
 use std::io::{Error, ErrorKind, Result};
+use super::oh_sys::*;
 
-#[repr(C)]
-struct RawFile {
-    _unused: [u8; 0],
-}
-
-#[repr(C)]
-pub struct NativeResourceManager {
-    _unused: [u8; 0],
-}
-
-#[link(name = "rawfile.z")]
-extern "C" {
-    fn OH_ResourceManager_InitNativeResourceManager(
-        env: napi_env,
-        jsResMgr: napi_value,
-    ) -> *mut NativeResourceManager;
-    fn OH_ResourceManager_ReleaseNativeResourceManager(
-        resMgr: *mut NativeResourceManager,
-    ) -> ::core::ffi::c_void;
-    fn OH_ResourceManager_OpenRawFile(
-        mgr: *const NativeResourceManager,
-        fileName: *const ::core::ffi::c_char,
-    ) -> *mut RawFile;
-    fn OH_ResourceManager_GetRawFileSize(rawFile: *mut RawFile) -> ::core::ffi::c_long;
-    fn OH_ResourceManager_CloseRawFile(rawFile: *mut RawFile) -> ::core::ffi::c_void;
-    fn OH_ResourceManager_ReadRawFile(
-        rawFile: *const RawFile,
-        buf: *mut ::core::ffi::c_void,
-        length: ::core::ffi::c_ulong,
-    ) -> ::core::ffi::c_int;
-}
 #[derive(Clone, Debug)]
 pub struct RawFileMgr {
     native_resource_manager: *mut NativeResourceManager,
