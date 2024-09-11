@@ -1,13 +1,13 @@
 use self::super::oh_sys::*;
 use crate::area::Area;
-use crate::event::{TouchPoint, TouchState, TextInputEvent};
+use crate::event::{TextInputEvent, TouchPoint, TouchState};
 use crate::makepad_math::*;
 use napi_derive_ohos::napi;
 use napi_ohos::{Env, JsObject, JsString, NapiRaw};
 use ohos_sys::xcomponent::{
     OH_NativeXComponent, OH_NativeXComponent_Callback, OH_NativeXComponent_GetTouchEvent,
     OH_NativeXComponent_GetXComponentSize, OH_NativeXComponent_RegisterCallback,
-    OH_NativeXComponent_TouchEvent, OH_NativeXComponent_TouchEventType
+    OH_NativeXComponent_TouchEvent, OH_NativeXComponent_TouchEventType,
 };
 use std::cell::{Cell, RefCell};
 use std::mem::MaybeUninit;
@@ -35,12 +35,11 @@ pub fn send_from_ohos_message(message: FromOhosMessage) {
 }
 
 #[napi]
-pub fn handle_insert_text_event(text:String) -> napi_ohos::Result<()>
-{
-    let e = TextInputEvent{
-        input:text,
-        replace_last:false,
-        was_paste:false
+pub fn handle_insert_text_event(text: String) -> napi_ohos::Result<()> {
+    let e = TextInputEvent {
+        input: text,
+        replace_last: false,
+        was_paste: false,
     };
     send_from_ohos_message(FromOhosMessage::TextInput(e));
     Ok(())
@@ -53,11 +52,10 @@ pub fn handle_delete_left_event(length: i32) -> napi_ohos::Result<()> {
 }
 
 #[napi]
-pub fn handle_keyboard_status(is_open:bool, keyboard_height:i32) -> napi_ohos::Result<()> {
+pub fn handle_keyboard_status(is_open: bool, keyboard_height: i32) -> napi_ohos::Result<()> {
     send_from_ohos_message(FromOhosMessage::ResizeTextIME(is_open, keyboard_height));
     Ok(())
 }
-
 
 #[no_mangle]
 extern "C" fn on_surface_created_cb(xcomponent: *mut OH_NativeXComponent, window: *mut c_void) {
@@ -165,10 +163,13 @@ extern "C" fn on_vsync_cb(_timestamp: ::core::ffi::c_longlong, data: *mut c_void
 }
 
 #[no_mangle]
-extern "C" fn on_frame_cb(_component: *mut OH_NativeXComponent, _timestamp: u64, _target_timestamp: u64) {
+extern "C" fn on_frame_cb(
+    _component: *mut OH_NativeXComponent,
+    _timestamp: u64,
+    _target_timestamp: u64,
+) {
     send_from_ohos_message(FromOhosMessage::VSync);
 }
-
 
 pub fn init_globals(from_ohos_tx: mpsc::Sender<FromOhosMessage>) {
     OHOS_MSG_TX.with(move |messages_tx| *messages_tx.borrow_mut() = Some(from_ohos_tx));
@@ -242,9 +243,9 @@ pub enum FromOhosMessage {
         device_type: String,
         os_full_name: String,
         display_density: f64,
-        files_dir:String,
-        cache_dir:String,
-        temp_dir:String,
+        files_dir: String,
+        cache_dir: String,
+        temp_dir: String,
         raw_env: napi_ohos::sys::napi_env,
         arkts_ref: napi_ohos::sys::napi_ref,
         raw_file: RawFileMgr,
@@ -264,6 +265,6 @@ pub enum FromOhosMessage {
     Touch(TouchPoint),
     TextInput(TextInputEvent),
     DeleteLeft(i32),
-    ResizeTextIME(bool, i32)
+    ResizeTextIME(bool, i32),
 }
 //TODO DIP

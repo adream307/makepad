@@ -1,7 +1,7 @@
 #[allow(dead_code)]
 use napi_ohos::sys::*;
-use std::ptr::null_mut;
 use std::ffi::CString;
+use std::ptr::null_mut;
 
 fn value_type_to_string(val_type: &napi_valuetype) -> String {
     match *val_type {
@@ -32,13 +32,7 @@ pub fn get_value_string(raw_env: napi_env, str_value: napi_value) -> Option<Stri
     let buf_ptr = ret.as_mut_ptr();
     let mut written_char_count = 0;
     let napi_status = unsafe {
-        napi_get_value_string_utf8(
-            raw_env,
-            str_value,
-            buf_ptr,
-            len,
-            &mut written_char_count,
-        )
+        napi_get_value_string_utf8(raw_env, str_value, buf_ptr, len, &mut written_char_count)
     };
     if napi_status != Status::napi_ok {
         crate::error!("failed to get string from napi_value");
@@ -53,7 +47,7 @@ pub fn get_value_string(raw_env: napi_env, str_value: napi_value) -> Option<Stri
             crate::error!("failed to read utf8 string, {}", e);
             return None;
         }
-        Ok(s) => Some(s)
+        Ok(s) => Some(s),
     }
 }
 
@@ -67,7 +61,7 @@ pub fn get_value_f64(raw_env: napi_env, f64_value: napi_value) -> Option<f64> {
     return Some(result);
 }
 
-pub fn get_uv_loop(raw_env: napi_env) -> Option< * mut uv_loop_s> {
+pub fn get_uv_loop(raw_env: napi_env) -> Option<*mut uv_loop_s> {
     let mut uv_loop = std::ptr::null_mut();
     let napi_status = unsafe { napi_get_uv_event_loop(raw_env, &mut uv_loop) };
     if napi_status != Status::napi_ok {
@@ -75,10 +69,13 @@ pub fn get_uv_loop(raw_env: napi_env) -> Option< * mut uv_loop_s> {
         return None;
     }
     return Some(uv_loop);
-
 }
 
-pub fn get_object_property(raw_env: napi_env, object_value: napi_value, property_name: &str) -> Option<napi_value>{
+pub fn get_object_property(
+    raw_env: napi_env,
+    object_value: napi_value,
+    property_name: &str,
+) -> Option<napi_value> {
     let cname = CString::new(property_name).ok()?;
     let mut result = null_mut();
     let napi_status =
@@ -201,7 +198,7 @@ pub fn get_global_context(raw_env: napi_env) -> Option<napi_value> {
 
 pub fn get_files_dir(raw_env: napi_env) -> Option<String> {
     let ctx = get_global_context(raw_env);
-    if ctx.is_none(){
+    if ctx.is_none() {
         return None;
     }
     let file_dirs = get_object_property(raw_env, ctx?, "filesDir");

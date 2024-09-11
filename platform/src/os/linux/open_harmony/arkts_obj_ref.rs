@@ -1,12 +1,12 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
+use super::oh_sys::*;
+use super::oh_util;
 use napi_ohos::sys::*;
 use std::ffi::*;
 use std::ptr::null_mut;
 use std::sync::mpsc;
-use super::oh_util;
-use super::oh_sys::*;
 
 #[derive(Clone, Debug)]
 pub enum ArkTsObjErr {
@@ -28,19 +28,19 @@ impl From<NulError> for ArkTsObjErr {
 pub struct ArkTsObjRef {
     raw_env: napi_env,
     obj_ref: napi_ref,
-    uv_loop : *mut uv_loop_t,
+    uv_loop: *mut uv_loop_t,
     val_tx: mpsc::Sender<Result<napi_value, ArkTsObjErr>>,
     val_rx: mpsc::Receiver<Result<napi_value, ArkTsObjErr>>,
     //---------- args for work cb
     fn_name: String,
     argc: usize,
     argv: *const napi_value,
-    worker: * mut uv_work_t,
+    worker: *mut uv_work_t,
 }
 
 impl Drop for ArkTsObjRef {
     fn drop(&mut self) {
-        if self.worker.is_null()==false {
+        if self.worker.is_null() == false {
             let layout = std::alloc::Layout::new::<uv_work_t>();
             unsafe { std::alloc::dealloc(self.worker as *mut u8, layout) };
         }
@@ -56,7 +56,7 @@ impl ArkTsObjRef {
         ArkTsObjRef {
             raw_env: env,
             obj_ref: obj,
-            uv_loop:uv_loop,
+            uv_loop: uv_loop,
             val_tx: tx,
             val_rx: rx,
             //---------
@@ -86,13 +86,12 @@ impl ArkTsObjRef {
         let argc = unsafe { (*ark_obj).argc };
         let argv = unsafe { (*ark_obj).argv };
         let raw_env = unsafe { (*ark_obj).raw_env };
-        let obj_ref = unsafe { (*ark_obj).obj_ref};
-        let val_tx = unsafe { (*ark_obj).val_tx.clone()};
+        let obj_ref = unsafe { (*ark_obj).obj_ref };
+        let val_tx = unsafe { (*ark_obj).val_tx.clone() };
 
         let mut arkts_obj = null_mut();
 
-        let napi_status =
-            unsafe { napi_get_reference_value(raw_env, obj_ref, &mut arkts_obj) };
+        let napi_status = unsafe { napi_get_reference_value(raw_env, obj_ref, &mut arkts_obj) };
         if napi_status != Status::napi_ok {
             crate::error!("failed to get value from reference");
             let _ = val_tx.send(Err(ArkTsObjErr::InvalidObjectValue));
@@ -101,9 +100,8 @@ impl ArkTsObjRef {
 
         let cname = CString::new(fn_name.clone()).unwrap();
         let mut js_fn = null_mut();
-        let napi_status = unsafe {
-            napi_get_named_property(raw_env, arkts_obj, cname.as_ptr(), &mut js_fn)
-        };
+        let napi_status =
+            unsafe { napi_get_named_property(raw_env, arkts_obj, cname.as_ptr(), &mut js_fn) };
         if napi_status != Status::napi_ok {
             crate::error!("failed to get function {} from arkts object", fn_name);
             let _ = val_tx.send(Err(ArkTsObjErr::InvalidProperty));
@@ -119,16 +117,8 @@ impl ArkTsObjRef {
         }
 
         let mut call_result = null_mut();
-        let napi_status = unsafe {
-            napi_call_function(
-                raw_env,
-                arkts_obj,
-                js_fn,
-                argc,
-                argv,
-                &mut call_result,
-            )
-        };
+        let napi_status =
+            unsafe { napi_call_function(raw_env, arkts_obj, js_fn, argc, argv, &mut call_result) };
         if napi_status != Status::napi_ok {
             crate::error!("failed to call js function:{}", fn_name);
             let _ = val_tx.send(Err(ArkTsObjErr::CallJsFailed));
@@ -141,7 +131,7 @@ impl ArkTsObjRef {
         let object = self.get_ref_value()?;
         match oh_util::get_object_property(self.raw_env, object, &name) {
             Some(val) => Ok(val),
-            None => Err(ArkTsObjErr::InvalidProperty)
+            None => Err(ArkTsObjErr::InvalidProperty),
         }
     }
 
@@ -149,7 +139,7 @@ impl ArkTsObjRef {
         let property = self.get_property(name)?;
         match oh_util::get_value_string(self.raw_env, property) {
             Some(val) => Ok(val),
-            None => Err(ArkTsObjErr::InvalidStringValue)
+            None => Err(ArkTsObjErr::InvalidStringValue),
         }
     }
 
@@ -157,7 +147,7 @@ impl ArkTsObjRef {
         let property = self.get_property(name)?;
         match oh_util::get_value_f64(self.raw_env, property) {
             Some(val) => Ok(val),
-            None => Err(ArkTsObjErr::InvalidNumberValue)
+            None => Err(ArkTsObjErr::InvalidNumberValue),
         }
     }
 
@@ -166,7 +156,7 @@ impl ArkTsObjRef {
     }
 
     pub fn call_js_function(
-        & mut self,
+        &mut self,
         name: &str,
         argc: usize,
         argv: *const napi_value,
@@ -174,7 +164,9 @@ impl ArkTsObjRef {
         self.fn_name = name.to_string();
         self.argc = argc;
         self.argv = argv;
-        unsafe { (*(self.worker)).data = self.as_ptr() as * mut c_void;}
+        unsafe {
+            (*(self.worker)).data = self.as_ptr() as *mut c_void;
+        }
 
         let _ = unsafe {
             uv_queue_work(

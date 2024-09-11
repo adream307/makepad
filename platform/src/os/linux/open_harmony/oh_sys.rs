@@ -51,7 +51,6 @@ pub struct uv__work {
     pub wq: [*mut c_void; 2],
 }
 
-
 #[link(name = "uv")]
 extern "C" {
     pub fn uv_queue_work(

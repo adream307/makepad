@@ -1,26 +1,28 @@
 use {
     self::super::{
-        super::gl_sys, arkts_obj_ref::ArkTsObjRef, oh_callbacks::*, oh_media::CxOpenHarmonyMedia, raw_file::RawFileMgr
+        super::gl_sys, arkts_obj_ref::ArkTsObjRef, oh_callbacks::*, oh_media::CxOpenHarmonyMedia,
+        raw_file::RawFileMgr,
     },
     crate::{
         cx::{Cx, OpenHarmonyParams, OsType},
         cx_api::{CxOsApi, CxOsOp, OpenUrlInPlace},
         cx_stdin::{PollTimer, PollTimers},
         egl_sys::{self, LibEgl, EGL_NONE},
-        event::{Event, KeyCode, KeyEvent, TouchUpdateEvent,VirtualKeyboardEvent, WindowGeom},
+        event::{Event, KeyCode, KeyEvent, TouchUpdateEvent, VirtualKeyboardEvent, WindowGeom},
         gpu_info::GpuPerformance,
         makepad_math::*,
         os::cx_native::EventFlow,
         pass::{CxPassParent, PassClearColor, PassClearDepth, PassId},
         thread::SignalToUI,
-        window::CxWindowPool, WindowGeomChangeEvent,
+        window::CxWindowPool,
+        WindowGeomChangeEvent,
     },
     napi_derive_ohos::napi,
     napi_ohos::{sys::*, Env, JsObject, NapiRaw},
     std::{ffi::CString, os::raw::c_void, ptr::null_mut, rc::Rc, sync::mpsc, time::Instant},
 };
 
-#[napi(js_name="onCreate")]
+#[napi(js_name = "onCreate")]
 pub fn ohos_ability_on_create(env: Env, ark_ts: JsObject) -> napi_ohos::Result<()> {
     let raw_env = env.raw();
     let raw_ark = unsafe { ark_ts.raw() };
@@ -30,8 +32,12 @@ pub fn ohos_ability_on_create(env: Env, ark_ts: JsObject) -> napi_ohos::Result<(
     assert!(status == 0);
 
     let arkts_obj = ArkTsObjRef::new(raw_env, arkts_ref);
-    let device_type = arkts_obj.get_string("deviceType").unwrap_or("phone".to_string());
-    let os_full_name = arkts_obj.get_string("osFullName").unwrap_or("OpenHarmony".to_string());
+    let device_type = arkts_obj
+        .get_string("deviceType")
+        .unwrap_or("phone".to_string());
+    let os_full_name = arkts_obj
+        .get_string("osFullName")
+        .unwrap_or("OpenHarmony".to_string());
     let display_density = arkts_obj.get_number("displayDensity").unwrap_or(3.25);
     let files_dir = arkts_obj.get_string("filesDir").unwrap();
     let cache_dir = arkts_obj.get_string("cacheDir").unwrap();
@@ -141,36 +147,46 @@ impl Cx {
 
     fn handle_message(&mut self, msg: FromOhosMessage) {
         match msg {
-            FromOhosMessage::SurfaceCreated { window, width: _, height:_ } => unsafe {
+            FromOhosMessage::SurfaceCreated {
+                window,
+                width: _,
+                height: _,
+            } => unsafe {
                 self.os.display.as_mut().unwrap().update_surface(window);
-            }
+            },
             FromOhosMessage::SurfaceDestroyed => unsafe {
                 self.os.display.as_mut().unwrap().destroy_surface();
-            }
-            FromOhosMessage::SurfaceChanged { window, width, height } => {
-                unsafe { self.os.display.as_mut().unwrap().update_surface(window); }
+            },
+            FromOhosMessage::SurfaceChanged {
+                window,
+                width,
+                height,
+            } => {
+                unsafe {
+                    self.os.display.as_mut().unwrap().update_surface(window);
+                }
                 self.os.display_size = dvec2(width as f64, height as f64);
                 let window_id = CxWindowPool::id_zero();
                 let window = &mut self.windows[window_id];
-                let old_geom =  window.window_geom.clone();
+                let old_geom = window.window_geom.clone();
 
                 let dpi_factor = window.dpi_override.unwrap_or(self.os.dpi_factor);
                 let size = self.os.display_size / dpi_factor;
                 window.window_geom = WindowGeom {
                     dpi_factor,
-                    can_fullscreen:false,
-                    xr_is_presenting:false,
-                    is_fullscreen:true,
-                    is_topmost:true,
-                    position:dvec2(0.0, 0.0),
+                    can_fullscreen: false,
+                    xr_is_presenting: false,
+                    is_fullscreen: true,
+                    is_topmost: true,
+                    position: dvec2(0.0, 0.0),
                     inner_size: size,
                     outer_size: size,
                 };
                 let new_geom = window.window_geom.clone();
-                self.call_event_handler(&Event::WindowGeomChange(WindowGeomChangeEvent{
+                self.call_event_handler(&Event::WindowGeomChange(WindowGeomChangeEvent {
                     window_id,
                     new_geom,
-                    old_geom
+                    old_geom,
                 }));
                 if let Some(main_pass_id) = self.windows[window_id].main_pass_id {
                     self.redraw_pass_and_child_passes(main_pass_id);
@@ -178,7 +194,6 @@ impl Cx {
                 self.redraw_all();
                 self.os.first_after_resize = true;
                 self.call_event_handler(&Event::ClearAtlasses);
-
             }
             FromOhosMessage::Touch(point) => {
                 let mut point = point;
@@ -208,10 +223,10 @@ impl Cx {
             FromOhosMessage::DeleteLeft(length) => {
                 for _ in 0..length {
                     let time = self.os.timers.time_now();
-                    let e = KeyEvent{
-                        key_code:KeyCode::Backspace,
-                        is_repeat:false,
-                        modifiers:Default::default(),
+                    let e = KeyEvent {
+                        key_code: KeyCode::Backspace,
+                        is_repeat: false,
+                        modifiers: Default::default(),
                         time,
                     };
                     self.keyboard.process_key_down(e.clone());
@@ -223,25 +238,26 @@ impl Cx {
             FromOhosMessage::ResizeTextIME(is_open, keyboard_height) => {
                 let keyboard_height = (keyboard_height as f64) / self.os.dpi_factor;
                 if is_open {
-                    self.call_event_handler(&Event::VirtualKeyboard(VirtualKeyboardEvent::DidShow {
-                        height: keyboard_height,
-                        time: self.os.timers.time_now()
-                    }))
+                    self.call_event_handler(&Event::VirtualKeyboard(
+                        VirtualKeyboardEvent::DidShow {
+                            height: keyboard_height,
+                            time: self.os.timers.time_now(),
+                        },
+                    ))
                 } else {
                     self.text_ime_was_dismissed();
-                    self.call_event_handler(&Event::VirtualKeyboard(VirtualKeyboardEvent::DidHide {
-                        time: self.os.timers.time_now()
-                    }))
+                    self.call_event_handler(&Event::VirtualKeyboard(
+                        VirtualKeyboardEvent::DidHide {
+                            time: self.os.timers.time_now(),
+                        },
+                    ))
                 }
             }
             _ => {}
         }
     }
 
-    fn wait_init(
-        &mut self,
-        from_ohos_rx: &mpsc::Receiver<FromOhosMessage>,
-    ) -> bool {
+    fn wait_init(&mut self, from_ohos_rx: &mpsc::Receiver<FromOhosMessage>) -> bool {
         if let Ok(FromOhosMessage::Init {
             device_type,
             os_full_name,
@@ -251,7 +267,9 @@ impl Cx {
             temp_dir,
             raw_env,
             arkts_ref,
-            raw_file })=from_ohos_rx.recv() {
+            raw_file,
+        }) = from_ohos_rx.recv()
+        {
             self.os.dpi_factor = display_density;
             self.os.raw_file = Some(raw_file);
             self.os_type = OsType::OpenHarmony(OpenHarmonyParams {
@@ -274,9 +292,19 @@ impl Cx {
         &mut self,
         from_ohos_rx: &mpsc::Receiver<FromOhosMessage>,
     ) -> *mut c_void {
-        if let Ok(FromOhosMessage::SurfaceCreated { window, width, height }) = from_ohos_rx.recv() {
+        if let Ok(FromOhosMessage::SurfaceCreated {
+            window,
+            width,
+            height,
+        }) = from_ohos_rx.recv()
+        {
             self.os.display_size = dvec2(width as f64, height as f64);
-            crate::log!("handle surface created, width={}, height={}, display_density={}", width, height, self.os.dpi_factor);
+            crate::log!(
+                "handle surface created, width={}, height={}, display_density={}",
+                width,
+                height,
+                self.os.dpi_factor
+            );
             return window;
         } else {
             crate::error!("Can't recv SurfaceCreated from arkts");
@@ -305,7 +333,10 @@ impl Cx {
         }
     }
 
-    fn ohos_startup<F>(startup: F) where F: FnOnce() -> Box<Cx> + Send + 'static {
+    fn ohos_startup<F>(startup: F)
+    where
+        F: FnOnce() -> Box<Cx> + Send + 'static,
+    {
         crate::log!("ohos startup");
         let (from_ohos_tx, from_ohos_rx) = mpsc::channel();
         let ohos_tx = from_ohos_tx.clone();
@@ -370,7 +401,6 @@ impl Cx {
             cx.main_loop(from_ohos_rx);
             //TODO, destroy surface
         });
-
     }
 
     pub fn ohos_load_dependencies(&mut self) {
@@ -493,7 +523,10 @@ impl Cx {
                     interval,
                     repeats,
                 } => {
-                    self.os.timers.timers.insert(timer_id, PollTimer::new(interval,repeats));
+                    self.os
+                        .timers
+                        .timers
+                        .insert(timer_id, PollTimer::new(interval, repeats));
                 }
                 CxOsOp::StopTimer(timer_id) => {
                     self.os.timers.timers.remove(&timer_id);
@@ -509,7 +542,8 @@ impl Cx {
                     let _ = self.os.arkts_obj.as_mut().unwrap().call_js_function(
                         "hideKeyBoard",
                         0,
-                        std::ptr::null_mut());
+                        std::ptr::null_mut(),
+                    );
                     //self.os.keyboard_visible = false;
                     //unsafe {android_jni::to_java_show_keyboard(false);}
                 }
@@ -586,41 +620,41 @@ impl Default for CxOs {
 
 impl CxOhosDisplay {
     unsafe fn destroy_surface(&mut self) {
-       (self.libegl.eglMakeCurrent.unwrap())(
-           self.egl_display,
-           std::ptr::null_mut(),
-           std::ptr::null_mut(),
-           std::ptr::null_mut(),
-       );
-       (self.libegl.eglDestroySurface.unwrap())(self.egl_display, self.surface);
-       self.surface = std::ptr::null_mut();
+        (self.libegl.eglMakeCurrent.unwrap())(
+            self.egl_display,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        );
+        (self.libegl.eglDestroySurface.unwrap())(self.egl_display, self.surface);
+        self.surface = std::ptr::null_mut();
     }
 
     unsafe fn update_surface(&mut self, window: *mut c_void) {
-       if !self.window.is_null() {
-           //todo release window
-       }
-       self.window = window;
-       if self.surface.is_null() == false {
-           self.destroy_surface();
-       }
+        if !self.window.is_null() {
+            //todo release window
+        }
+        self.window = window;
+        if self.surface.is_null() == false {
+            self.destroy_surface();
+        }
 
-       let win_attr = vec![EGL_NONE];
-       self.surface = (self.libegl.eglCreateWindowSurface.unwrap())(
-           self.egl_display,
-           self.egl_config,
-           self.window as _,
-           win_attr.as_ptr() as _,
-       );
+        let win_attr = vec![EGL_NONE];
+        self.surface = (self.libegl.eglCreateWindowSurface.unwrap())(
+            self.egl_display,
+            self.egl_config,
+            self.window as _,
+            win_attr.as_ptr() as _,
+        );
 
-       if self.surface.is_null() {
-           let err_code = unsafe { (self.libegl.eglGetError.unwrap())() };
-           crate::log!("eglCreateWindowSurface error code:{}", err_code);
-       }
+        if self.surface.is_null() {
+            let err_code = unsafe { (self.libegl.eglGetError.unwrap())() };
+            crate::log!("eglCreateWindowSurface error code:{}", err_code);
+        }
 
-       assert!(!self.surface.is_null());
+        assert!(!self.surface.is_null());
 
-       self.make_current();
+        self.make_current();
     }
 
     unsafe fn swap_buffers(&mut self) {
@@ -628,14 +662,14 @@ impl CxOhosDisplay {
     }
 
     unsafe fn make_current(&mut self) {
-       if (self.libegl.eglMakeCurrent.unwrap())(
-           self.egl_display,
-           self.surface,
-           self.surface,
-           self.egl_context,
-       ) == 0
-       {
-           panic!();
-       }
+        if (self.libegl.eglMakeCurrent.unwrap())(
+            self.egl_display,
+            self.surface,
+            self.surface,
+            self.egl_context,
+        ) == 0
+        {
+            panic!();
+        }
     }
 }
