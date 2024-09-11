@@ -222,11 +222,6 @@ pub fn register_vsync_callback(from_ohos_tx: mpsc::Sender<FromOhosMessage>) {
     }
 }
 
-pub fn register_on_frame_callback(xcomponent: *mut OH_NativeXComponent)
-{
-    unsafe { OH_NativeXComponent_RegisterOnFrameCallback(xcomponent, Some(on_frame_cb))};
-}
-
 #[allow(unused)]
 pub fn debug_jsobject(obj: &JsObject, obj_name: &str) -> napi_ohos::Result<()> {
     let names = obj.get_property_names()?;
