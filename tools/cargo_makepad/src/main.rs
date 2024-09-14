@@ -3,7 +3,10 @@ mod wasm;
 mod utils;
 mod apple;
 mod check;
+mod open_harmony;
+
 use android::*;
+use open_harmony::*;
 use wasm::*;
 use apple::*;
 use check::*;
@@ -76,6 +79,10 @@ println!("    wasm [options] run <cargo args>              Build and run a wasm 
     println!("    android [options] expand-sdk");
     println!("    android [options] remove-sdk-sources");
     println!();
+    println!("Open Harmony commands:");
+    println!();
+    println!("    ohos [options] install-toolchain          Install the toolchain needed with rustup");
+    println!();
     println!("Linux commands:");
     println!();
     println!("    linux apt-get-install-makepad-deps           Call apt-get install with all dependencies needed for makepad.");
@@ -109,6 +116,9 @@ fn main() {
             println!("Got error: {}", e);
         }
         "apple" => if let Err(e) = handle_apple(&args[1..]){
+            println!("Got error: {}", e);
+        }
+        "ohos" => if let Err(e) = handle_open_harmony(&args[1..]){
             println!("Got error: {}", e);
         }
         "check" => if let Err(e) = handle_check(&args[1..]){
