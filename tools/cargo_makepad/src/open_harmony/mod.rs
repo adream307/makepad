@@ -38,7 +38,7 @@ pub fn handle_open_harmony(args: &[String]) -> Result<(), String> {
         if let Some(opt) = v.strip_prefix("--project-path") {
             project_path = Some(opt.to_string())
         }
-        else if let Some(opt) = v.strip_prefix("-deveco-home") {
+        else if let Some(opt) = v.strip_prefix("--deveco-home") {
             deveco_home = Some(opt.to_string());
         }
 
