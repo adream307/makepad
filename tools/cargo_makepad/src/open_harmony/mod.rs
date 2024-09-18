@@ -30,15 +30,11 @@ pub fn handle_open_harmony(mut args: &[String]) -> Result<(), String> {
     #[cfg(all(target_os = "macos", target_arch = "x86_64"))] let mut host_os = HostOs::MacosX64;
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))] let mut host_os = HostOs::LinuxX64;
     let targets = vec![OpenHarmonyTarget::aarch64];
-    let mut project_path = None;
     let mut deveco_home = None;
 
     for i in 0..args.len() {
         let v = &args[i];
-        if let Some(opt) = v.strip_prefix("--project-path=") {
-            project_path = Some(opt.to_string())
-        }
-        else if let Some(opt) = v.strip_prefix("--deveco-home=") {
+        if let Some(opt) = v.strip_prefix("--deveco-home=") {
             deveco_home = Some(opt.to_string());
         }
         else {
@@ -61,7 +57,7 @@ pub fn handle_open_harmony(mut args: &[String]) -> Result<(), String> {
             sdk::rustup_toolchain_install(&targets)
         }
         "build" => {
-            compile::build(&deveco_home, &project_path, &args[1..])
+            compile::build(&deveco_home, &args[1..])
         }
         _ => Err(format!("{} is not a valid command or option", args[0]))
 

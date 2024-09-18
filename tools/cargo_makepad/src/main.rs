@@ -83,7 +83,6 @@ println!("    wasm [options] run <cargo args>              Build and run a wasm 
     println!();
     println!("    ohos [options] install-toolchain             Install the toolchain needed with rustup");
     println!("    ohos [options] build <cargo args>            Build an DevEco project for Open Harmony OS");
-    println!("       --project-path=\"project_path\"           The path of the DevEco Project");
     println!("       --deveco-home=\"deveco_path\"             The path of DevEco program");
     println!();
     println!("Linux commands:");
