@@ -35,10 +35,10 @@ pub fn handle_open_harmony(args: &[String]) -> Result<(), String> {
 
     for i in 0..args.len() {
         let v = &args[i];
-        if let Some(opt) = v.strip_prefix("--project-path") {
+        if let Some(opt) = v.strip_prefix("--project-path=") {
             project_path = Some(opt.to_string())
         }
-        else if let Some(opt) = v.strip_prefix("--deveco-home") {
+        else if let Some(opt) = v.strip_prefix("--deveco-home=") {
             deveco_home = Some(opt.to_string());
         }
 
