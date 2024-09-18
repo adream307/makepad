@@ -1,7 +1,7 @@
 import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
-import makepad from 'libentry.so'
+import makepad from 'libmakepad.so'
 import {ArkGlue} from '../makepad/makepad'
 
 export default class EntryAbility extends UIAbility {

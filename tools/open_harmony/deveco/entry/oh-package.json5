@@ -1,11 +1,11 @@
 {
-  "name": "entry",
+  "name": "makepad",
   "version": "1.0.0",
   "description": "Please describe the basic information.",
   "main": "",
   "author": "",
   "license": "",
   "dependencies": {
-    "libentry.so": "file:./src/main/cpp/types/libentry"
+    "libmakepad.so": "file:./src/main/cpp/types/libentry"
   }
 }
