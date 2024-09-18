@@ -23,7 +23,7 @@ impl OpenHarmonyTarget {
     }
 }
 
-pub fn handle_open_harmony(args: &[String]) -> Result<(), String> {
+pub fn handle_open_harmony(mut args: &[String]) -> Result<(), String> {
     #[allow(unused)]
     let mut host_os = HostOs::Unsupported;
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))] let mut host_os = HostOs::WindowsX64;
@@ -41,7 +41,10 @@ pub fn handle_open_harmony(args: &[String]) -> Result<(), String> {
         else if let Some(opt) = v.strip_prefix("--deveco-home=") {
             deveco_home = Some(opt.to_string());
         }
-
+        else {
+            args = &args[i..];
+            break
+        }
     }
 
     if deveco_home.is_none() {
@@ -58,7 +61,7 @@ pub fn handle_open_harmony(args: &[String]) -> Result<(), String> {
             sdk::rustup_toolchain_install(&targets)
         }
         "build" => {
-            compile::build(&deveco_home, &project_path)
+            compile::build(&deveco_home, &project_path, &args[1..])
         }
         _ => Err(format!("{} is not a valid command or option", args[0]))
 
