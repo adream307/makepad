@@ -48,6 +48,8 @@ pub fn build(deveco_home: &Option<String>, prj_path: &Option<String>) ->  Result
     if prj_path.is_none() {
         return Err("--project-path is not specified".to_owned());
     }
+    println!("open harmony: deveco_home={}",deveco_home.as_ref().unwrap());
+    println!("open harmony: project_path={}",prj_path.as_ref().unwrap());
     let tpl_path = std::env::current_dir().unwrap().join("tools/open_harmony/deveco");
 
     let path = Path::new(prj_path.as_ref().unwrap());
