@@ -34,6 +34,7 @@ fn rust_build(deveco_home: &Option<String>, host_os: HostOs, args: &[String], ta
     for target in targets {
         let toolchain = target.toolchain();
         let target_opt = format!("--target={toolchain}");
+        let toolchain = toolchain.replace('-',"_");
 
         let base_args = &[
             "run",
