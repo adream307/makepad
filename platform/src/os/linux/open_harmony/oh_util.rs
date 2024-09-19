@@ -2,6 +2,7 @@
 use napi_ohos::sys::*;
 use std::ffi::CString;
 use std::ptr::null_mut;
+use super::oh_sys;
 
 fn value_type_to_string(val_type: &napi_valuetype) -> String {
     match *val_type {
@@ -212,4 +213,21 @@ pub fn get_files_dir(raw_env: napi_env) -> Option<String> {
         return None;
     }
     return str_val;
+}
+
+pub struct HiTrace {
+    _unused: [u8; 0],
+}
+
+impl HiTrace {
+    pub fn new(name : &str) {
+        let c_str = CString::new(name).expect("CString::new failed");
+        unsafe {oh_sys::OH_HiTrace_StartTrace(c_str.as_ptr());}
+    }
+}
+
+impl Drop for HiTrace {
+    fn drop(&mut self) {
+        unsafe {oh_sys::OH_HiTrace_FinishTrace();}
+    }
 }

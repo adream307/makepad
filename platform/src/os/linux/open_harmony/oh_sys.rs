@@ -94,3 +94,10 @@ extern "C" {
         length: ::core::ffi::c_ulong,
     ) -> ::core::ffi::c_int;
 }
+
+// trace
+#[link(name = "hitrace_ndk.z")]
+extern "C" {
+    pub fn OH_HiTrace_StartTrace (name: *const c_char);
+    pub fn OH_HiTrace_FinishTrace ();
+}
