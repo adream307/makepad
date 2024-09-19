@@ -1,7 +1,7 @@
 mod compile;
 mod sdk;
-use compile::*;
 
+#[allow(unused)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum HostOs {
     WindowsX64,
@@ -24,11 +24,9 @@ impl OpenHarmonyTarget {
 }
 
 pub fn handle_open_harmony(mut args: &[String]) -> Result<(), String> {
-    #[allow(unused)]
-    let mut host_os = HostOs::Unsupported;
-    #[cfg(all(target_os = "windows", target_arch = "x86_64"))] let mut host_os = HostOs::WindowsX64;
-    #[cfg(all(target_os = "macos", target_arch = "x86_64"))] let mut host_os = HostOs::MacosX64;
-    #[cfg(all(target_os = "linux", target_arch = "x86_64"))] let mut host_os = HostOs::LinuxX64;
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))] let host_os = HostOs::WindowsX64;
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))] let host_os = HostOs::MacosX64;
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))] let host_os = HostOs::LinuxX64;
     let targets = vec![OpenHarmonyTarget::aarch64];
     let mut deveco_home = None;
 
@@ -57,7 +55,7 @@ pub fn handle_open_harmony(mut args: &[String]) -> Result<(), String> {
             sdk::rustup_toolchain_install(&targets)
         }
         "build" => {
-            compile::build(&deveco_home, &args[1..])
+            compile::build(&deveco_home, &args[1..], host_os, &targets)
         }
         _ => Err(format!("{} is not a valid command or option", args[0]))
 
