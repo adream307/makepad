@@ -15,7 +15,7 @@ fn get_sdk_path(deveco_home : &Path, host_os: &HostOs) -> Result<PathBuf, String
     }
 }
 
-fn rust_build(deveco_home: &Option<String>, host_os: HostOs, args: &[String], targets:&[OpenHarmonyTarget]) -> Result<(), String> {
+fn rust_build(deveco_home: &Option<String>, host_os: &HostOs, args: &[String], targets:&[OpenHarmonyTarget]) -> Result<(), String> {
     let deveco_home = Path::new(deveco_home.as_ref().unwrap());
     let cwd = std::env::current_dir().unwrap();
     let sdk_path = get_sdk_path(deveco_home, &host_os)?;
@@ -112,11 +112,16 @@ fn create_deveco_project(args : &[String], targets :&[OpenHarmonyTarget]) -> Res
     Ok(())
 }
 
-pub fn build(deveco_home: &Option<String>, args: &[String], host_os: HostOs, targets :&[OpenHarmonyTarget]) ->  Result<(), String> {
+pub fn deveco(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, targets :&[OpenHarmonyTarget]) ->  Result<(), String> {
     if deveco_home.is_none() {
         return Err("--deveco-home is not specified".to_owned());
     }
-    rust_build(&deveco_home, host_os, &args, &targets)?;
+    rust_build(&deveco_home, &host_os, &args, &targets)?;
     create_deveco_project(args, &targets)?;
+    Ok(())
+}
+
+pub fn build(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, targets :&[OpenHarmonyTarget]) ->  Result<(), String> {
+    deveco(&deveco_home, &args, &host_os, &targets)?;
     Ok(())
 }

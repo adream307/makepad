@@ -54,8 +54,11 @@ pub fn handle_open_harmony(mut args: &[String]) -> Result<(), String> {
         "toolchain-install" | "install-toolchain" => {
             sdk::rustup_toolchain_install(&targets)
         }
+        "deveco" => {
+            compile::deveco(&deveco_home, &args[1..], &host_os, &targets)
+        }
         "build" => {
-            compile::build(&deveco_home, &args[1..], host_os, &targets)
+            compile::build(&deveco_home, &args[1..], &host_os, &targets)
         }
         _ => Err(format!("{} is not a valid command or option", args[0]))
 
