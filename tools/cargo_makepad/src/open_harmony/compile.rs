@@ -82,11 +82,24 @@ fn create_deveco_project(args : &[String], targets :&[OpenHarmonyTarget]) -> Res
     mkdir(&raw_file)?;
     let build_crate_dir = get_crate_dir(build_crate)?;
     let local_resources_path = build_crate_dir.join("resources");
+
     if local_resources_path.is_dir() {
         let dst_dir = raw_file.join(format!("makepad/{underscore_build_crate}/resources"));
         mkdir(&dst_dir)?;
         cp_all(&local_resources_path, &dst_dir, false)?;
     }
+    let build_dir =cwd.join(format!("target/{}/{}",targets[0].toolchain(), profile));
+    let deps = get_crate_dep_dirs(build_crate, &build_dir, &targets[0].toolchain());
+    for (name, dep_dir) in deps.iter() {
+        let resources_path = dep_dir.join("resources");
+        if resources_path.is_dir() {
+            let name = name.replace('-', "_");
+            let dst_dir = raw_file.join(format!("makepad/{name}/resources"));
+            mkdir(&dst_dir)?;
+            cp_all(&resources_path, &dst_dir, false)?;
+        }
+    }
+
     for target in targets {
         let target_dir = target.toolchain();
         let deveco_lib_dir = match target {
