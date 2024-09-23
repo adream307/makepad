@@ -67,24 +67,34 @@ fn rust_build(deveco_home: &Option<String>, host_os: HostOs, args: &[String], ta
     Ok(())
 }
 
-fn create_deveco_project(args : &[String], _targets :&[OpenHarmonyTarget]) -> Result<(), String> {
+fn create_deveco_project(args : &[String], targets :&[OpenHarmonyTarget]) -> Result<(), String> {
+    let cwd = std::env::current_dir().unwrap();
     let build_crate = get_build_crate_from_args(args)?;
+    let profile = get_profile_from_args(args);
     let underscore_build_crate = build_crate.replace('-', "_");
 
-    let prj_path = std::env::current_dir().unwrap().join(format!("target/makepad-open-haromony/{underscore_build_crate}"));
+    let prj_path = cwd.join(format!("target/makepad-open-haromony/{underscore_build_crate}"));
     let raw_file = prj_path.join("entry/src/main/resources/rawfile");
-    let tpl_path = std::env::current_dir().unwrap().join("tools/open_harmony/deveco");
+    let tpl_path = cwd.join("tools/open_harmony/deveco");
     let _= rmdir(&prj_path);
     mkdir(&prj_path)?;
     cp_all(&tpl_path, &prj_path, false)?;
     mkdir(&raw_file)?;
-
     let build_crate_dir = get_crate_dir(build_crate)?;
     let local_resources_path = build_crate_dir.join("resources");
     if local_resources_path.is_dir() {
         let dst_dir = raw_file.join(format!("makepad/{underscore_build_crate}/resources"));
         mkdir(&dst_dir)?;
         cp_all(&local_resources_path, &dst_dir, false)?;
+    }
+    for target in targets {
+        let target_dir = target.toolchain();
+        let deveco_lib_dir = match target {
+            OpenHarmonyTarget::aarch64 => "arm64-v8a"
+        };
+        let src_lib = cwd.join(format!("target/{target_dir}/{profile}/lib{underscore_build_crate}.so"));
+        let dst_lib = cwd.join(format!("target/makepad-open-haromony/{underscore_build_crate}/entry/libs/{deveco_lib_dir}/libmakepad.so"));
+        cp(&src_lib, &dst_lib, false)?;
     }
     Ok(())
 }
