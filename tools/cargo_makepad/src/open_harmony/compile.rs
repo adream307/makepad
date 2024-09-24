@@ -5,11 +5,73 @@ use crate::makepad_shell::*;
 use std::path::Path;
 use std::path::PathBuf;
 
-fn get_sdk_path(deveco_home : &Path, host_os: &HostOs) -> Result<PathBuf, String> {
+fn get_sdk_home(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
     match host_os {
         HostOs::LinuxX64 => {
-            let sdk_path = deveco_home.join("sdk/HarmonyOS-NEXT-DB2/openharmony/native");
+            let sdk_path = deveco_home.join("sdk/HarmonyOS-NEXT-DB2/openharmony");
             Ok(sdk_path)
+        },
+        _ => panic!()
+    }
+}
+
+
+fn get_deveco_sdk_home(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
+    match host_os {
+        HostOs::LinuxX64 => {
+            let sdk_path = deveco_home.join("sdk");
+            Ok(sdk_path)
+        },
+        _ => panic!()
+    }
+}
+
+
+fn get_node_home(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
+    match host_os {
+        HostOs::LinuxX64 => {
+            let node = deveco_home.join("tool/node");
+            Ok(node)
+        },
+        _ => panic!()
+    }
+}
+
+fn get_node_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
+    match host_os {
+        HostOs::LinuxX64 => {
+            let node = deveco_home.join("tool/node/bin/node");
+            Ok(node)
+        },
+        _ => panic!()
+    }
+}
+
+fn get_ohpm_home(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
+    match host_os {
+        HostOs::LinuxX64 => {
+            let node = deveco_home.join("ohpm");
+            Ok(node)
+        },
+        _ => panic!()
+    }
+}
+
+fn get_hvigor_home(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
+    match host_os {
+        HostOs::LinuxX64 => {
+            let node = deveco_home.join("hvigor");
+            Ok(node)
+        },
+        _ => panic!()
+    }
+}
+
+fn get_hdc_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
+    match host_os {
+        HostOs::LinuxX64 => {
+            let node = deveco_home.join("sdk/HarmonyOS-NEXT-DB2/openharmony/toolchains");
+            Ok(node)
         },
         _ => panic!()
     }
@@ -18,7 +80,7 @@ fn get_sdk_path(deveco_home : &Path, host_os: &HostOs) -> Result<PathBuf, String
 fn rust_build(deveco_home: &Option<String>, host_os: &HostOs, args: &[String], targets:&[OpenHarmonyTarget]) -> Result<(), String> {
     let deveco_home = Path::new(deveco_home.as_ref().unwrap());
     let cwd = std::env::current_dir().unwrap();
-    let sdk_path = get_sdk_path(deveco_home, &host_os)?;
+    let sdk_path = get_sdk_home(deveco_home, &host_os)?;
 
     let bin_path = | file_name: &str, extension:& str | match host_os {
         HostOs::LinuxX64 => String::from(file_name),
@@ -27,10 +89,10 @@ fn rust_build(deveco_home: &Option<String>, host_os: &HostOs, args: &[String], t
         _ => panic!()
     };
 
-    let full_clang_path = sdk_path.join(bin_path("llvm/bin/aarch64-unknown-linux-ohos-clang","cmd"));
-    let full_clangpp_path = sdk_path.join(bin_path("llvm/bin/aarch64-unknown-linux-ohos-clang","cmd"));
-    let full_llvm_ar_path = sdk_path.join(bin_path("llvm/bin/llvm-ar","exe"));
-    let full_llvm_ranlib_path = sdk_path.join(bin_path("llvm/bin/llvm-ranlib","exe"));
+    let full_clang_path = sdk_path.join("native/llvm/bin/aarch64-unknown-linux-ohos-clang");
+    let full_clangpp_path = sdk_path.join("native/llvm/bin/aarch64-unknown-linux-ohos-clang++");
+    let full_llvm_ar_path = sdk_path.join(bin_path("native/llvm/bin/llvm-ar","exe"));
+    let full_llvm_ranlib_path = sdk_path.join(bin_path("native/llvm/bin/llvm-ranlib","exe"));
     for target in targets {
         let toolchain = target.toolchain();
         let target_opt = format!("--target={toolchain}");
@@ -112,6 +174,44 @@ fn create_deveco_project(args : &[String], targets :&[OpenHarmonyTarget]) -> Res
     Ok(())
 }
 
+fn build_hap(deveco_home: &Option<String>, args: &[String], host_os: &HostOs) -> Result<(), String> {
+    let deveco_home = Path::new(deveco_home.as_ref().unwrap());
+    let node_home = get_node_home(&deveco_home, &host_os)?;
+    let deveco_sdk_home = get_deveco_sdk_home(&deveco_home, &host_os)?;
+    let node_path = get_node_path(&deveco_home, &host_os)?;
+    let hvigor_home = get_hvigor_home(&deveco_home, &host_os)?;
+    let hvigorw_path = hvigor_home.join("bin/hvigorw.js");
+
+
+    let cwd = std::env::current_dir().unwrap();
+    let build_crate = get_build_crate_from_args(args)?;
+    let underscore_build_crate = build_crate.replace('-', "_");
+    let prj_path = cwd.join(format!("target/makepad-open-haromony/{underscore_build_crate}"));
+
+    shell_env(
+        &[
+            (&format!("DEVECO_SDK_HOME"), deveco_sdk_home.to_str().unwrap()),
+            (&format!("NODE_HOME"), node_home.to_str().unwrap()),
+        ],
+        &prj_path,
+        node_path.to_str().unwrap(),
+        &[hvigorw_path.to_str().unwrap(), "clean", "--no-daemon"])?;
+
+    shell_env(
+        &[
+            (&format!("DEVECO_SDK_HOME"), deveco_sdk_home.to_str().unwrap()),
+            (&format!("NODE_HOME"), node_home.to_str().unwrap()),
+        ],
+        &prj_path,
+        node_path.to_str().unwrap(),
+        &[hvigorw_path.to_str().unwrap(), "assembleHap", "--no-daemon"])?;
+
+    Ok(())
+}
+
+
+
+
 pub fn deveco(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, targets :&[OpenHarmonyTarget]) ->  Result<(), String> {
     if deveco_home.is_none() {
         return Err("--deveco-home is not specified".to_owned());
@@ -123,5 +223,6 @@ pub fn deveco(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, t
 
 pub fn build(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, targets :&[OpenHarmonyTarget]) ->  Result<(), String> {
     deveco(&deveco_home, &args, &host_os, &targets)?;
+    build_hap(&deveco_home, &args, &host_os)?;
     Ok(())
 }
