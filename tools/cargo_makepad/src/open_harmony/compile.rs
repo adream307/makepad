@@ -204,7 +204,7 @@ fn build_hap(deveco_home: &Option<String>, args: &[String], host_os: &HostOs) ->
         ],
         &prj_path,
         node_path.to_str().unwrap(),
-        &[hvigorw_path.to_str().unwrap(), "assembleHap", "--no-daemon"])?;
+        &[hvigorw_path.to_str().unwrap(), "assembleHap", "--mode module", "-p product=default", "-p buildMode=release", "--no-daemon"])?;
 
     Ok(())
 }
