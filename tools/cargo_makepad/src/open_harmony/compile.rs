@@ -78,11 +78,11 @@ fn get_hdc_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String>
     }
 }
 
-fn app_json(crate_name:&str) -> String {
+fn app_json(bundle_name:&str) -> String {
     format!(r#"
 {{
   "app": {{
-    "bundleName": "dev.makepad.{crate_name}",
+    "bundleName": "dev.makepad.{bundle_name}",
     "vendor": "makepad",
     "versionCode": 1000000,
     "versionName": "1.0.0",
@@ -92,6 +92,49 @@ fn app_json(crate_name:&str) -> String {
 }}
     "#)
 }
+
+fn label_json(label_name:&str) -> String {
+    format!(r#"
+{{
+  "string": [
+    {{
+      "name": "module_desc",
+      "value": "module description"
+    }},
+    {{
+      "name": "EntryAbility_desc",
+      "value": "description"
+    }},
+    {{
+      "name": "EntryAbility_label",
+      "value": "{label_name}"
+    }}
+  ]
+}}
+"#)
+}
+
+fn label_zh_json(label_name:&str) -> String {
+    format!(r#"
+{{
+  "string": [
+    {{
+      "name": "module_desc",
+      "value": "模块描述"
+    }},
+    {{
+      "name": "EntryAbility_desc",
+      "value": "description"
+    }},
+    {{
+      "name": "EntryAbility_label",
+      "value": "{label_name}"
+    }}
+  ]
+}}
+"#)
+}
+
 
 fn check_deveco_prj(args: &[String]) -> Result<(), String> {
     let cwd = std::env::current_dir().unwrap();
@@ -175,6 +218,19 @@ fn create_deveco_project(args : &[String], targets :&[OpenHarmonyTarget]) -> Res
     if let Ok(mut app_file) = std::fs::File::create(app_cfg) {
         let _ = app_file.write_all(app_json(&underscore_build_crate).as_bytes());
     }
+    let lable_path = prj_path.join("entry/src/main/resources/base/element/string.json");
+    if let Ok(mut label_file) = std::fs::File::create(lable_path) {
+        let _ = label_file.write_all(label_json(&underscore_build_crate).as_bytes());
+    }
+    let label_us_path = prj_path.join("entry/src/main/resources/en_US/element/string.json");
+    if let Ok(mut label_file) = std::fs::File::create(label_us_path) {
+        let _ = label_file.write_all(label_json(&underscore_build_crate).as_bytes());
+    }
+    let label_zh_path = prj_path.join("entry/src/main/resources/zh_CN/element/string.json");
+    if let Ok(mut label_file) = std::fs::File::create(label_zh_path) {
+        let _ = label_file.write_all(label_zh_json(&underscore_build_crate).as_bytes());
+    }
+
     add_dependencies(&args, &targets)
 }
 
