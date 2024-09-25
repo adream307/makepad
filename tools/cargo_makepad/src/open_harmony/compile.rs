@@ -93,6 +93,20 @@ fn app_json(crate_name:&str) -> String {
     "#)
 }
 
+fn check_deveco_prj(args: &[String]) -> Result<(), String> {
+    let cwd = std::env::current_dir().unwrap();
+    let build_crate = get_build_crate_from_args(args)?;
+    let underscore_build_crate = build_crate.replace('-', "_");
+
+    let prj_path = cwd.join(format!("target/makepad-open-haromony/{underscore_build_crate}"));
+    if prj_path.is_dir() == false {
+        Err("run \"deveco\" to create DevEco project before \"build\"".to_owned())
+    } else {
+        Ok(())
+    }
+}
+
+
 fn rust_build(deveco_home: &Option<String>, host_os: &HostOs, args: &[String], targets:&[OpenHarmonyTarget]) -> Result<(), String> {
     let deveco_home = Path::new(deveco_home.as_ref().unwrap());
     let cwd = std::env::current_dir().unwrap();
@@ -242,8 +256,8 @@ pub fn deveco(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, t
     Ok(())
 }
 
-pub fn build(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, targets :&[OpenHarmonyTarget]) ->  Result<(), String> {
-    deveco(&deveco_home, &args, &host_os, &targets)?;
+pub fn build(deveco_home: &Option<String>, args: &[String], host_os: &HostOs) ->  Result<(), String> {
+    check_deveco_prj(&args)?;
     build_hap(&deveco_home, &args, &host_os)?;
     Ok(())
 }
