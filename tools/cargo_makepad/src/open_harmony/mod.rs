@@ -73,6 +73,9 @@ pub fn handle_open_harmony(mut args: &[String]) -> Result<(), String> {
         "run" => {
             compile::run(&deveco_home, &args[1..], &host_os, &targets, &hdc_remote)
         }
+        "cdylib" => {
+            compile::rust_build(&deveco_home, &host_os,&args[1..], &targets)
+        }
         _ => Err(format!("{} is not a valid command or option", args[0]))
 
     }

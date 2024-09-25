@@ -151,7 +151,7 @@ fn check_deveco_prj(args: &[String]) -> Result<(), String> {
 }
 
 
-fn rust_build(deveco_home: &Option<String>, host_os: &HostOs, args: &[String], targets:&[OpenHarmonyTarget]) -> Result<(), String> {
+pub fn rust_build(deveco_home: &Option<String>, host_os: &HostOs, args: &[String], targets:&[OpenHarmonyTarget]) -> Result<(), String> {
     let deveco_home = Path::new(deveco_home.as_ref().unwrap());
     let cwd = std::env::current_dir().unwrap();
     let sdk_path = get_sdk_home(deveco_home, &host_os)?;

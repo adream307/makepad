@@ -89,6 +89,8 @@ println!("    wasm [options] run <cargo args>              Build and run a wasm 
     println!("    ohos [options] run <cargo args>              Run the Hap package on a open harmony device via hdc");
     println!("       --deveco-home=\"deveco_path\"             The path of DevEco program");
     println!("       --remote=\"<hdcip:port>\"                 Remote hdc service");
+    println!("    ohos [options] cdylib <cargo args>           Build makepad shared library only");
+    println!("       --deveco-home=\"deveco_path\"             The path of DevEco program");
     println!();
     println!("Linux commands:");
     println!();
