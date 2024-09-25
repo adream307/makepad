@@ -331,3 +331,8 @@ pub fn build(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, ta
     build_hap(&deveco_home, &args, &host_os)?;
     Ok(())
 }
+
+pub fn run(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, targets :&[OpenHarmonyTarget]) ->  Result<(), String> {
+    build(&deveco_home, &args, &host_os, &targets)?;
+    Ok(())
+}

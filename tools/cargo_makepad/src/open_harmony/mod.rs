@@ -60,6 +60,9 @@ pub fn handle_open_harmony(mut args: &[String]) -> Result<(), String> {
         "build" => {
             compile::build(&deveco_home, &args[1..], &host_os, &targets)
         }
+        "run" => {
+            compile::run(&deveco_home, &args[1..], &host_os, &targets)
+        }
         _ => Err(format!("{} is not a valid command or option", args[0]))
 
     }
