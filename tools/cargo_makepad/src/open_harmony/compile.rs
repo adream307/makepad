@@ -2,6 +2,7 @@ use crate::open_harmony::OpenHarmonyTarget;
 use crate::open_harmony::HostOs;
 use crate::utils::*;
 use crate::makepad_shell::*;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -77,6 +78,21 @@ fn get_hdc_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String>
     }
 }
 
+fn app_json(crate_name:&str) -> String {
+    format!(r#"
+{{
+  "app": {{
+    "bundleName": "dev.makepad.{crate_name}",
+    "vendor": "makepad",
+    "versionCode": 1000000,
+    "versionName": "1.0.0",
+    "icon": "$media:app_icon",
+    "label": "$string:app_name"
+    }}
+}}
+    "#)
+}
+
 fn rust_build(deveco_home: &Option<String>, host_os: &HostOs, args: &[String], targets:&[OpenHarmonyTarget]) -> Result<(), String> {
     let deveco_home = Path::new(deveco_home.as_ref().unwrap());
     let cwd = std::env::current_dir().unwrap();
@@ -142,8 +158,13 @@ fn create_deveco_project(args : &[String], targets :&[OpenHarmonyTarget]) -> Res
     mkdir(&prj_path)?;
     cp_all(&tpl_path, &prj_path, false)?;
     mkdir(&raw_file)?;
+    let app_cfg = prj_path.join("AppScope/app.json5");
+    if let Ok(mut app_file) = std::fs::File::create(app_cfg) {
+        let _ = app_file.write_all(app_json(&underscore_build_crate).as_bytes());
+    }
     let build_crate_dir = get_crate_dir(build_crate)?;
     let local_resources_path = build_crate_dir.join("resources");
+
 
     if local_resources_path.is_dir() {
         let dst_dir = raw_file.join(format!("makepad/{underscore_build_crate}/resources"));
