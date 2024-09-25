@@ -29,11 +29,15 @@ pub fn handle_open_harmony(mut args: &[String]) -> Result<(), String> {
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))] let host_os = HostOs::LinuxX64;
     let targets = vec![OpenHarmonyTarget::aarch64];
     let mut deveco_home = None;
+    let mut hdc_remote = None;
 
     for i in 0..args.len() {
         let v = &args[i];
         if let Some(opt) = v.strip_prefix("--deveco-home=") {
             deveco_home = Some(opt.to_string());
+        }
+        else if let Some(remote) = v.strip_prefix("--remote=") {
+            hdc_remote = Some(remote.to_string());
         }
         else {
             args = &args[i..];
@@ -44,6 +48,12 @@ pub fn handle_open_harmony(mut args: &[String]) -> Result<(), String> {
     if deveco_home.is_none() {
         if let Ok(v) = std::env::var("DEVECO_HOME") {
             deveco_home = Some(v);
+        }
+    }
+
+    if hdc_remote.is_none() {
+        if let Ok(v) = std::env::var("HDC_REMOTE") {
+            hdc_remote = Some(v);
         }
     }
 
@@ -61,7 +71,7 @@ pub fn handle_open_harmony(mut args: &[String]) -> Result<(), String> {
             compile::build(&deveco_home, &args[1..], &host_os, &targets)
         }
         "run" => {
-            compile::run(&deveco_home, &args[1..], &host_os, &targets)
+            compile::run(&deveco_home, &args[1..], &host_os, &targets, &hdc_remote)
         }
         _ => Err(format!("{} is not a valid command or option", args[0]))
 

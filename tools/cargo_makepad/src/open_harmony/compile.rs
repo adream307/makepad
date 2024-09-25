@@ -48,6 +48,7 @@ fn get_node_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String
     }
 }
 
+#[allow(unused)]
 fn get_ohpm_home(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
     match host_os {
         HostOs::LinuxX64 => {
@@ -71,7 +72,7 @@ fn get_hvigor_home(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, Stri
 fn get_hdc_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
     match host_os {
         HostOs::LinuxX64 => {
-            let node = deveco_home.join("sdk/HarmonyOS-NEXT-DB2/openharmony/toolchains");
+            let node = deveco_home.join("sdk/HarmonyOS-NEXT-DB2/openharmony/toolchains/hdc");
             Ok(node)
         },
         _ => panic!()
@@ -291,6 +292,7 @@ fn build_hap(deveco_home: &Option<String>, args: &[String], host_os: &HostOs) ->
     let underscore_build_crate = build_crate.replace('-', "_");
     let prj_path = cwd.join(format!("target/makepad-open-haromony/{underscore_build_crate}"));
 
+    println!("{} {} clean --nodaemon", node_path.to_str().unwrap(), hvigorw_path.to_str().unwrap());
     shell_env(
         &[
             (&format!("DEVECO_SDK_HOME"), deveco_sdk_home.to_str().unwrap()),
@@ -300,6 +302,8 @@ fn build_hap(deveco_home: &Option<String>, args: &[String], host_os: &HostOs) ->
         node_path.to_str().unwrap(),
         &[hvigorw_path.to_str().unwrap(), "clean", "--no-daemon"])?;
 
+    println!("{} {} assembleHap --mode module -p product=default -p buildMode=release --no-daemon",
+            node_path.to_str().unwrap(), hvigorw_path.to_str().unwrap());
     shell_env(
         &[
             (&format!("DEVECO_SDK_HOME"), deveco_sdk_home.to_str().unwrap()),
@@ -312,7 +316,29 @@ fn build_hap(deveco_home: &Option<String>, args: &[String], host_os: &HostOs) ->
     Ok(())
 }
 
+fn hdc_cmd(hdc_path: &Path, cwd:&Path, args: &[&str], hdc_remote :&Option<String>) -> Result<(), String> {
+    if let Some(r) = hdc_remote {
+        let mut new_args: Vec<&str> = vec!["-s", r.as_str()];
+        for a in args {
+            new_args.push(a);
+        }
+        shell(&cwd,hdc_path.to_str().unwrap(), &new_args)?;
+        print!("hdc");
+        for a in new_args{
+            print!(" {}",a);
+        }
+        println!("");
 
+    } else {
+        shell(&cwd,hdc_path.to_str().unwrap(),&args)?;
+        print!("hdc");
+        for a in args{
+            print!(" {}",a);
+        }
+        println!("");
+    }
+    Ok(())
+}
 
 
 pub fn deveco(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, targets :&[OpenHarmonyTarget]) ->  Result<(), String> {
@@ -332,7 +358,29 @@ pub fn build(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, ta
     Ok(())
 }
 
-pub fn run(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, targets :&[OpenHarmonyTarget]) ->  Result<(), String> {
+pub fn run(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, targets: &[OpenHarmonyTarget], hdc_remote: &Option<String>) ->  Result<(), String> {
     build(&deveco_home, &args, &host_os, &targets)?;
+    let cwd = std::env::current_dir().unwrap();
+    let deveco_home = Path::new(deveco_home.as_ref().unwrap());
+    let hdc = get_hdc_path(&deveco_home, &host_os)?;
+    let build_crate = get_build_crate_from_args(args)?;
+    let underscore_build_crate = build_crate.replace('-', "_");
+    let bundle = format!("dev.makepad.{}",underscore_build_crate);
+
+    let prj_path = cwd.join(format!("target/makepad-open-haromony/{underscore_build_crate}"));
+    let hap_path = prj_path.join("entry/build/default/outputs/default/makepad-default-signed.hap");
+    if hap_path.is_file() == false {
+        return Err("failed to generate signed hap package".to_owned());
+    }
+
+    hdc_cmd(&hdc, &prj_path, &["shell","aa", "force-stop", bundle.as_str()], &hdc_remote)?;
+
+    let bundle_dir = format!("data/local/tmp/{underscore_build_crate}");
+    let _ = hdc_cmd(&hdc, &prj_path, &["shell", "rm", "-rf", bundle_dir.as_str()], &hdc_remote);
+    hdc_cmd(&hdc, &prj_path, &["shell", "mkdir", bundle_dir.as_str()], &hdc_remote)?;
+    hdc_cmd(&hdc, &prj_path, &["file", "send", hap_path.to_str().unwrap(), bundle_dir.as_str()], &hdc_remote)?;
+    hdc_cmd(&hdc, &prj_path, &["shell", "bm", "install", "-p", bundle_dir.as_str()], &hdc_remote)?;
+    hdc_cmd(&hdc, &prj_path, &["shell", "rm", "-rf", bundle_dir.as_str()], &hdc_remote)?;
+    hdc_cmd(&hdc, &prj_path, &["shell", "aa", "start", "-a", "EntryAbility", "-b", bundle.as_str()], &hdc_remote)?;
     Ok(())
 }
