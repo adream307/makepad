@@ -382,5 +382,6 @@ pub fn run(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, targ
     hdc_cmd(&hdc, &prj_path, &["shell", "bm", "install", "-p", bundle_dir.as_str()], &hdc_remote)?;
     hdc_cmd(&hdc, &prj_path, &["shell", "rm", "-rf", bundle_dir.as_str()], &hdc_remote)?;
     hdc_cmd(&hdc, &prj_path, &["shell", "aa", "start", "-a", "EntryAbility", "-b", bundle.as_str()], &hdc_remote)?;
+    hdc_cmd(&hdc, &prj_path, &["hilog"], &hdc_remote)?;
     Ok(())
 }
