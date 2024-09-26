@@ -382,6 +382,15 @@ pub fn run(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, targ
     hdc_cmd(&hdc, &prj_path, &["shell", "bm", "install", "-p", bundle_dir.as_str()], &hdc_remote)?;
     hdc_cmd(&hdc, &prj_path, &["shell", "rm", "-rf", bundle_dir.as_str()], &hdc_remote)?;
     hdc_cmd(&hdc, &prj_path, &["shell", "aa", "start", "-a", "EntryAbility", "-b", bundle.as_str()], &hdc_remote)?;
-    hdc_cmd(&hdc, &prj_path, &["hilog"], &hdc_remote)?;
     Ok(())
+}
+
+pub fn hilog(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, hdc_remote: &Option<String>) ->  Result<(), String>  {
+    let cwd = std::env::current_dir().unwrap();
+    let deveco_home = Path::new(deveco_home.as_ref().unwrap());
+    let hdc = get_hdc_path(&deveco_home, &host_os)?;
+    let build_crate = get_build_crate_from_args(args)?;
+    let underscore_build_crate = build_crate.replace('-', "_");
+    let prj_path = cwd.join(format!("target/makepad-open-haromony/{underscore_build_crate}"));
+    hdc_cmd(&hdc, &prj_path, &["hilog"], &hdc_remote)
 }
