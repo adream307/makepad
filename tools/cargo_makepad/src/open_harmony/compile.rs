@@ -6,25 +6,23 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
-fn get_sdk_home(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
-    match host_os {
-        HostOs::LinuxX64 => {
-            let sdk_path = deveco_home.join("sdk/HarmonyOS-NEXT-DB2/openharmony");
-            Ok(sdk_path)
-        },
-        _ => panic!()
+fn get_sdk_home(deveco_home: &Path, _host_os: &HostOs) -> Result<PathBuf, String> {
+    for i in 0..5 {
+        let sdk = deveco_home.join(format!("sdk/HarmonyOS-NEXT-DB{i}/openharmony"));
+        if sdk.is_dir() {
+            return Ok(sdk);
+        }
     }
+    return Err(format!("failed to get sdk home, deveco_home={}",deveco_home.to_str().unwrap()));
 }
 
 
-fn get_deveco_sdk_home(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
-    match host_os {
-        HostOs::LinuxX64 => {
-            let sdk_path = deveco_home.join("sdk");
-            Ok(sdk_path)
-        },
-        _ => panic!()
+fn get_deveco_sdk_home(deveco_home: &Path, _host_os: &HostOs) -> Result<PathBuf, String> {
+    let deveco_sdk = deveco_home.join("sdk");
+    if deveco_sdk.is_dir() {
+        return Ok(deveco_sdk);
     }
+    return Err(format!("failed to get deveco sdk home, deveco_home={}",deveco_home.to_str().unwrap()));
 }
 
 
@@ -32,8 +30,25 @@ fn get_node_home(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String
     match host_os {
         HostOs::LinuxX64 => {
             let node = deveco_home.join("tool/node");
-            Ok(node)
+            if node.is_dir() {
+                return Ok(node);
+            }
+            return Err(format!("failed to get node home, deveco_home={}",deveco_home.to_str().unwrap()));
         },
+        HostOs::WindowsX64 => {
+            let node = deveco_home.join("tools/node");
+            if node.is_dir() {
+                return Ok(node);
+            }
+            return Err(format!("failed to get node home, deveco_home={}",deveco_home.to_str().unwrap()));
+        }
+        HostOs::MacosX64 => { //TODO, not tested yet
+            let node = deveco_home.join("tools/node");
+            if node.is_dir() {
+                return Ok(node);
+            }
+            return Err(format!("failed to get node home, deveco_home={}",deveco_home.to_str().unwrap()));
+        }
         _ => panic!()
     }
 }
@@ -42,41 +57,68 @@ fn get_node_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String
     match host_os {
         HostOs::LinuxX64 => {
             let node = deveco_home.join("tool/node/bin/node");
-            Ok(node)
+            if node.is_file() {
+                return Ok(node);
+            }
+            return Err(format!("failed to get node path, deveco_home={}",deveco_home.to_str().unwrap()));
+        },
+        HostOs::WindowsX64 => {
+            let node = deveco_home.join("tools/node/node.exe");
+            if node.is_file() {
+                return Ok(node);
+            }
+            return Err(format!("failed to get node path, deveco_home={}",deveco_home.to_str().unwrap()));
+        },
+        HostOs::MacosX64 => { //TODO, not testted yet
+            let node = deveco_home.join("tools/node/node");
+            if node.is_file() {
+                return Ok(node);
+            }
+            return Err(format!("failed to get node path, deveco_home={}",deveco_home.to_str().unwrap()));
         },
         _ => panic!()
     }
 }
 
-#[allow(unused)]
-fn get_ohpm_home(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
+fn get_hvigor_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
     match host_os {
         HostOs::LinuxX64 => {
-            let node = deveco_home.join("ohpm");
-            Ok(node)
+            let hvigor = deveco_home.join("hvigor/bin/hvigorw.js");
+            if hvigor.is_file() {
+                return Ok(hvigor);
+            }
+            return Err(format!("failed to get hvigor path, deveco_home={}",deveco_home.to_str().unwrap()));
         },
-        _ => panic!()
-    }
-}
-
-fn get_hvigor_home(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
-    match host_os {
-        HostOs::LinuxX64 => {
-            let node = deveco_home.join("hvigor");
-            Ok(node)
-        },
+        HostOs::WindowsX64 => {
+            let hvigor = deveco_home.join("tools/hvigor/bin/hvigorw.js");
+            if hvigor.is_file() {
+                return Ok(hvigor);
+            }
+            return Err(format!("failed to get hvigor path, deveco_home={}",deveco_home.to_str().unwrap()));
+        }
         _ => panic!()
     }
 }
 
 fn get_hdc_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
-    match host_os {
-        HostOs::LinuxX64 => {
-            let node = deveco_home.join("sdk/HarmonyOS-NEXT-DB2/openharmony/toolchains/hdc");
-            Ok(node)
-        },
-        _ => panic!()
+    for i in 0..5 {
+        match host_os {
+            HostOs::LinuxX64 => {
+                let hdc_path = deveco_home.join(format!("sdk/HarmonyOS-NEXT-DB{i}/openharmony/toolchains/hdc"));
+                if hdc_path.is_file() {
+                    return Ok(hdc_path);
+                }
+            },
+            HostOs::WindowsX64 => {
+                let hdc_path = deveco_home.join(format!("sdk/HarmonyOS-NEXT-DB{i}/openharmony/toolchains/hdc.exe"));
+                if hdc_path.is_file() {
+                    return Ok(hdc_path);
+                }
+            },
+            _ => panic!()
+        }
     }
+    return Err(format!("failed to get hdc path, deveco_home={}",deveco_home.to_str().unwrap()));
 }
 
 fn app_json(bundle_name:&str) -> String {
@@ -286,9 +328,7 @@ fn build_hap(deveco_home: &Option<String>, args: &[String], host_os: &HostOs) ->
     let node_home = get_node_home(&deveco_home, &host_os)?;
     let deveco_sdk_home = get_deveco_sdk_home(&deveco_home, &host_os)?;
     let node_path = get_node_path(&deveco_home, &host_os)?;
-    let hvigor_home = get_hvigor_home(&deveco_home, &host_os)?;
-    let hvigorw_path = hvigor_home.join("bin/hvigorw.js");
-
+    let hvigorw_path = get_hvigor_path(&deveco_home, &host_os)?;
 
     let cwd = std::env::current_dir().unwrap();
     let build_crate = get_build_crate_from_args(args)?;
