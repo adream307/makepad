@@ -5,7 +5,7 @@ mod sdk;
 #[derive(Clone, Copy, PartialEq)]
 pub enum HostOs {
     WindowsX64,
-    MacosX64,
+    MacOS,
     LinuxX64,
     Unsupported
 }
@@ -25,7 +25,7 @@ impl OpenHarmonyTarget {
 
 pub fn handle_open_harmony(mut args: &[String]) -> Result<(), String> {
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))] let host_os = HostOs::WindowsX64;
-    #[cfg(all(target_os = "macos", target_arch = "x86_64"))] let host_os = HostOs::MacosX64;
+    #[cfg(all(target_os = "macos"))] let host_os = HostOs::MacOS;
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))] let host_os = HostOs::LinuxX64;
     let targets = vec![OpenHarmonyTarget::aarch64];
     let mut deveco_home = None;

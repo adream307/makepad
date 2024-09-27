@@ -35,7 +35,7 @@ fn get_node_home(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String
             }
             return Err(format!("failed to get node home, deveco_home={}",deveco_home.to_str().unwrap()));
         },
-        HostOs::MacosX64 | HostOs::WindowsX64 => {
+        HostOs::MacOS | HostOs::WindowsX64 => {
             let node = deveco_home.join("tools").join("node");
             if node.is_dir() {
                 return Ok(node);
@@ -62,7 +62,7 @@ fn get_node_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String
             }
             return Err(format!("failed to get node path, deveco_home={}",deveco_home.to_str().unwrap()));
         },
-        HostOs::MacosX64 => {
+        HostOs::MacOS => {
             let node = deveco_home.join("tools/node/bin/node");
             if node.is_file() {
                 return Ok(node);
@@ -89,7 +89,7 @@ fn get_hvigor_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, Stri
             }
             return Err(format!("failed to get hvigor path, deveco_home={}",deveco_home.to_str().unwrap()));
         }
-        HostOs::MacosX64 => {
+        HostOs::MacOS => {
             let hvigor = deveco_home.join("tools/hvigor/bin/hvigorw.js");
             if hvigor.is_file() {
                 return Ok(hvigor);
@@ -103,7 +103,7 @@ fn get_hvigor_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, Stri
 fn get_hdc_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
     for i in 0..=5 {
         match host_os {
-            HostOs::LinuxX64 | HostOs::MacosX64 => {
+            HostOs::LinuxX64 | HostOs::MacOS => {
                 let hdc_path = deveco_home.join(format!("sdk/HarmonyOS-NEXT-DB{i}/openharmony/toolchains/hdc"));
                 if hdc_path.is_file() {
                     return Ok(hdc_path);
@@ -205,7 +205,7 @@ pub fn rust_build(deveco_home: &Option<String>, host_os: &HostOs, args: &[String
     let bin_path = | file_name: &str, extension:& str | match host_os {
         HostOs::LinuxX64 => String::from(file_name),
         HostOs::WindowsX64 => format!("{file_name}.{extension}"),
-        HostOs::MacosX64 => String::from(file_name),
+        HostOs::MacOS => String::from(file_name),
         _ => panic!()
     };
 
