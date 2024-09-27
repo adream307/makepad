@@ -193,6 +193,7 @@ fn check_deveco_prj(args: &[String]) -> Result<(), String> {
 }
 
 
+
 pub fn rust_build(deveco_home: &Option<String>, host_os: &HostOs, args: &[String], targets:&[OpenHarmonyTarget]) -> Result<(), String> {
     if deveco_home.is_none() {
         return Err("--deveco-home is not specified".to_owned());
@@ -212,6 +213,14 @@ pub fn rust_build(deveco_home: &Option<String>, host_os: &HostOs, args: &[String
     let full_clangpp_path = sdk_path.join(bin_path("native/llvm/bin/aarch64-unknown-linux-ohos-clang++","cmd"));
     let full_llvm_ar_path = sdk_path.join(bin_path("native/llvm/bin/llvm-ar","exe"));
     let full_llvm_ranlib_path = sdk_path.join(bin_path("native/llvm/bin/llvm-ranlib","exe"));
+
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    {
+        if full_clang_path.is_file() == false {
+            return Err(format!("please copy \"aarch64-unknown-linux-ohos-clang.cmd\" and \"aarch64-unknown-linux-ohos-clang++.cmd\" from  \"{}\\tools\\open_harmony\\cmd\" to \"{}\\native\\llvm\\bin\"",cwd.to_str().unwrap(),sdk_path.to_str().unwrap()));
+        }
+    }
+
     for target in targets {
         let toolchain = target.toolchain();
         let target_opt = format!("--target={toolchain}");
