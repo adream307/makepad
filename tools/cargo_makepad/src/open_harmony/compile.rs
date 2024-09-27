@@ -374,20 +374,20 @@ fn hdc_cmd(hdc_path: &Path, cwd:&Path, args: &[&str], hdc_remote :&Option<String
         for a in args {
             new_args.push(a);
         }
-        shell(&cwd,hdc_path.to_str().unwrap(), &new_args)?;
         print!("hdc");
-        for a in new_args{
+        for a in &new_args{
             print!(" {}",a);
         }
         println!("");
+        shell(&cwd,hdc_path.to_str().unwrap(), &new_args)?;
 
     } else {
-        shell(&cwd,hdc_path.to_str().unwrap(),&args)?;
         print!("hdc");
         for a in args{
             print!(" {}",a);
         }
         println!("");
+        shell(&cwd,hdc_path.to_str().unwrap(),&args)?;
     }
     Ok(())
 }
@@ -419,8 +419,16 @@ pub fn run(deveco_home: &Option<String>, args: &[String], host_os: &HostOs, targ
     let underscore_build_crate = build_crate.replace('-', "_");
     let bundle = format!("dev.makepad.{}",underscore_build_crate);
 
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    let prj_path = cwd.join(format!("target\\makepad-open-haromony\\{underscore_build_crate}"));
+    #[cfg(not(all(target_os = "windows", target_arch = "x86_64")))]
     let prj_path = cwd.join(format!("target/makepad-open-haromony/{underscore_build_crate}"));
+
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    let hap_path = prj_path.join("entry\\build\\default\\outputs\\default\\makepad-default-signed.hap");
+    #[cfg(not(all(target_os = "windows", target_arch = "x86_64")))]
     let hap_path = prj_path.join("entry/build/default/outputs/default/makepad-default-signed.hap");
+
     if hap_path.is_file() == false {
         return Err("failed to generate signed hap package".to_owned());
     }
