@@ -208,8 +208,8 @@ pub fn rust_build(deveco_home: &Option<String>, host_os: &HostOs, args: &[String
         _ => panic!()
     };
 
-    let full_clang_path = sdk_path.join("native/llvm/bin/aarch64-unknown-linux-ohos-clang");
-    let full_clangpp_path = sdk_path.join("native/llvm/bin/aarch64-unknown-linux-ohos-clang++");
+    let full_clang_path = sdk_path.join(bin_path("native/llvm/bin/aarch64-unknown-linux-ohos-clang","cmd"));
+    let full_clangpp_path = sdk_path.join(bin_path("native/llvm/bin/aarch64-unknown-linux-ohos-clang++","cmd"));
     let full_llvm_ar_path = sdk_path.join(bin_path("native/llvm/bin/llvm-ar","exe"));
     let full_llvm_ranlib_path = sdk_path.join(bin_path("native/llvm/bin/llvm-ranlib","exe"));
     for target in targets {
