@@ -28,6 +28,7 @@ workspace.members = [
     "examples/web_cam",
     "examples/ironfish",
     "examples/simple",
+    "examples/font",
     "examples/text_flow",
     "examples/simple",
     "examples/simple_shader",

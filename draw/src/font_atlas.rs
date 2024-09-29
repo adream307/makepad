@@ -560,11 +560,14 @@ impl<'a> Cx2d<'a> {
         });
 
         let mut glyph_out = if let Some(sdf_config) = &fonts_atlas.alloc.sdf {
+            let start = std::time::Instant::now();
             let (glyph_sdf, new_reuse_bufs) = sdfer::esdt::glyph_to_sdf(
                 &mut glyph_rast,
                 sdf_config.params,
                 reuse_sdfer_bufs.take(),
             );
+            let duration = start.elapsed();
+            crate::log!("sdfer::esdt::glyph_to_sdf = {}", duration.as_secs_f64()*1000.0);
             *reuse_sdfer_bufs = Some(new_reuse_bufs);
             glyph_sdf
         } else {
