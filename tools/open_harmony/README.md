@@ -172,3 +172,4 @@ DEVECO_HOME=<$HOME/command-line-tools> HDC_REMOTE=<ip-of-A>:8710 cargo makepad o
 
 ## References
 - <https://book.servo.org/hacking/building-for-openharmony.html#configuring-hdc-on-linux>
+- <https://gitee.com/openharmony-sig/flutter_engine>
