@@ -7,6 +7,10 @@ use std::path::Path;
 use std::path::PathBuf;
 
 fn get_sdk_home(deveco_home: &Path, _host_os: &HostOs) -> Result<PathBuf, String> {
+    let sdk =deveco_home.join("sdk").join(format!("default")).join("openharmony");
+    if sdk.is_dir() {
+        return Ok(sdk);
+    }
     for i in 1..=5 {
         let sdk = deveco_home.join("sdk").join(format!("HarmonyOS-NEXT-DB{i}")).join("openharmony");
         if sdk.is_dir() {
@@ -101,22 +105,32 @@ fn get_hvigor_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, Stri
 }
 
 fn get_hdc_path(deveco_home: &Path, host_os: &HostOs) -> Result<PathBuf, String> {
-    for i in 0..=5 {
-        match host_os {
-            HostOs::LinuxX64 | HostOs::MacOS => {
+    match host_os {
+        HostOs::LinuxX64 | HostOs::MacOS => {
+            let hdc_path = deveco_home.join(format!("sdk/default/openharmony/toolchains/hdc"));
+            if hdc_path.is_file() {
+                    return Ok(hdc_path);
+            }
+            for i in 1..-5 {
                 let hdc_path = deveco_home.join(format!("sdk/HarmonyOS-NEXT-DB{i}/openharmony/toolchains/hdc"));
                 if hdc_path.is_file() {
                     return Ok(hdc_path);
                 }
-            },
-            HostOs::WindowsX64 => {
+            }
+        },
+        HostOs::WindowsX64 => {
+            let hdc_path = deveco_home.join(format!("sdk\\default\\openharmony\\toolchains\\hdc.exe"));
+            if hdc_path.is_file() {
+                return Ok(hdc_path);
+            }
+            for i in 1..=5 {
                 let hdc_path = deveco_home.join(format!("sdk\\HarmonyOS-NEXT-DB{i}\\openharmony\\toolchains\\hdc.exe"));
                 if hdc_path.is_file() {
                     return Ok(hdc_path);
                 }
-            },
-            _ => panic!()
-        }
+            }
+        },
+        _ => panic!()
     }
     return Err(format!("failed to get hdc path, deveco_home={}",deveco_home.to_str().unwrap()));
 }
