@@ -1,4 +1,3 @@
-
 use crate::{
     widget::*,
     makepad_derive_widget::*,
@@ -135,11 +134,13 @@ impl LiveHook for PortalList {
 impl PortalList {
     
     fn begin(&mut self, cx: &mut Cx2d, walk: Walk) {
+        crate::log!("========= Portlist::begin()");
         cx.begin_turtle(walk, self.layout);
         self.draw_align_list.clear();
     }
-    
+
     fn end(&mut self, cx: &mut Cx2d) {
+        crate::log!("========= Portlist::end()");
         // in this code we position all the drawn items 
 
         self.at_end = false;
@@ -153,9 +154,13 @@ impl PortalList {
             if list.len()>0 {
                 list.sort_by( | a, b | a.index.cmp(&b.index));
                 let first_index = list.iter().position( | v | v.index == self.first_id).unwrap();
+                for i in 0..list.len() {
+                    let item =  &list[i];
+                    crate::log!("=========== item index={}, size={}", item.index, item.size.index(vi));
+                }
                 
                 // find the position of the first item in our set
-                
+
                 let mut first_pos = self.first_scroll;
                 for i in (0..first_index).rev() {
                     let item = &list[i];
@@ -254,14 +259,25 @@ impl PortalList {
                         let item = &list[i];
                         let shift = DVec2::from_index_pair(vi, pos, 0.0);
                         cx.shift_align_range(&item.align_range, shift - DVec2::from_index_pair(vi, item.shift, 0.0));
+                        let pos_x_invisible = pos < 0.0;
                         pos += item.size.index(vi);
                         let invisible = pos < 0.0;
-                        if invisible { // move down
+
+                        // if invisible {
+                        //     self.first_scroll = pos - item.size.index(vi);
+                        //     self.first_id = item.index;
+                        //     first_id_changed = true;
+                        // } else if item.index < self.range_end {
+                        //     visible_items += 1;
+                        // }
+
+                        if pos_x_invisible { // move down
                             self.first_scroll = pos - item.size.index(vi);
                             self.first_id = item.index;
                             first_id_changed = true;
                         }
-                        else if item.index < self.range_end {
+
+                        if !invisible && item.index < self.range_end {
                             visible_items += 1;
                         }
                     }
@@ -356,12 +372,12 @@ impl PortalList {
                     let rect = cx.end_turtle();
                     self.draw_align_list.push(AlignItem {
                         align_range,
-                        shift: pos, 
+                        shift: pos,
                         size: rect.size,
                         index
                     });
-                    
-                    if !did_draw || pos + rect.size.index(vi) > viewport.size.index(vi) {
+
+                    if !did_draw || pos + rect.size.index(vi) > viewport.size.index(vi) || index+1 == self.range_end {
                         // lets scan upwards
                         if self.first_id>0 && !is_down_again {
                             self.draw_state.set(ListDrawState::Up {
@@ -627,6 +643,10 @@ impl PortalList {
     /// including partially visible items.
     pub fn visible_items(&self) -> usize {
         self.visible_items
+    }
+
+    pub fn first_id(&self) -> usize {
+        self.first_id
     }
 
     /// Returns `true` if this sanity check fails: the first item ID is within the item range.

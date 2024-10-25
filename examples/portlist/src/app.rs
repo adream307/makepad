@@ -12,7 +12,7 @@ live_design!{
                 text:"XX"
                 draw_text:{
                     text_style:{
-                        font_size: 60,
+                        font_size: 100,
                     }
                     color:#0
                 }
@@ -54,17 +54,24 @@ struct NewsFeed{
 
 impl Widget for NewsFeed{
     fn draw_walk(&mut self, cx:&mut Cx2d, scope:&mut Scope, walk:Walk)->DrawStep{
+        log!("====== draw_walk");
+        let mut first_id : usize = 0;
+        let mut visible_items : usize = 0;
         while let Some(item) =  self.view.draw_walk(cx, scope, walk).step(){
             if let Some(mut list) = item.as_portal_list().borrow_mut() {
-                list.set_item_range(cx, 0, 1000);
+                list.set_item_range(cx, 0, 20);
                 while let Some(item_id) = list.next_visible_item(cx) {
+                    log!("=========== item_id = {item_id}");
                     let item = list.item(cx, item_id, live_id!(lbl));
                     item.as_label().set_text(&format!("{item_id}"));
                     //item.label(id!(lbl)).set_text(&format!("{item_id}"));
                     item.draw_all(cx, &mut Scope::empty());
                 }
+                first_id = list.first_id();
+                visible_items = list.visible_items();
             }
         }
+        log!("========= first_id={first_id}, visible_items={visible_items}");
         DrawStep::done()
     }
     fn handle_event(&mut self, cx:&mut Cx, event:&Event, scope:&mut Scope){
