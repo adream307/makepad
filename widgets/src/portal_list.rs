@@ -259,10 +259,16 @@ impl PortalList {
                         let item = &list[i];
                         let shift = DVec2::from_index_pair(vi, pos, 0.0);
                         cx.shift_align_range(&item.align_range, shift - DVec2::from_index_pair(vi, item.shift, 0.0));
-                        let pos_x_invisible = pos < 0.0;
-                        pos += item.size.index(vi);
-                        let invisible = pos < 0.0;
 
+                        if pos < 0.0 { // move down
+                            self.first_scroll = pos;
+                            self.first_id = item.index;
+                            first_id_changed = true;
+                        }
+
+                        pos += item.size.index(vi);
+
+                        // let invisible = pos < 0.0;
                         // if invisible {
                         //     self.first_scroll = pos - item.size.index(vi);
                         //     self.first_id = item.index;
@@ -271,13 +277,7 @@ impl PortalList {
                         //     visible_items += 1;
                         // }
 
-                        if pos_x_invisible { // move down
-                            self.first_scroll = pos - item.size.index(vi);
-                            self.first_id = item.index;
-                            first_id_changed = true;
-                        }
-
-                        if !invisible && item.index < self.range_end {
+                        if pos >= 0.0 && item.index < self.range_end {
                             visible_items += 1;
                         }
                     }
