@@ -23,6 +23,7 @@ workspace.members = [
     "examples/ui_zoo",
     "examples/ai_docs",
     "examples/news_feed",
+    "examples/portlist",
     #"examples/floating_elements",
     # "examples/bare_text",
     "examples/hello_widgets",
