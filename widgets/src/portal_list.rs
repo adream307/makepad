@@ -482,7 +482,7 @@ impl PortalList {
                         return None
                     }
                     
-                    if !did_draw || pos < if hit_bottom {-viewport.size.index(vi)} else {0.0} {
+                    if !did_draw || pos - rect.size.index(vi) < if hit_bottom {-viewport.size.index(vi)} else {0.0} {
                         self.draw_state.set(ListDrawState::End {viewport});
                         return None
                     }
