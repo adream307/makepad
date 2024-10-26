@@ -141,7 +141,7 @@ impl PortalList {
 
     fn end(&mut self, cx: &mut Cx2d) {
         crate::log!("========= Portlist::end()");
-        // in this code we position all the drawn items 
+        // in this code we position all the drawn items
 
         self.at_end = false;
         self.not_filling_viewport = false;

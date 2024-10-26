@@ -59,7 +59,7 @@ impl Widget for NewsFeed{
         let mut visible_items : usize = 0;
         while let Some(item) =  self.view.draw_walk(cx, scope, walk).step(){
             if let Some(mut list) = item.as_portal_list().borrow_mut() {
-                list.set_item_range(cx, 0, 20);
+                list.set_item_range(cx, 0, 10000);
                 while let Some(item_id) = list.next_visible_item(cx) {
                     log!("=========== item_id = {item_id}");
                     let item = list.item(cx, item_id, live_id!(lbl));
