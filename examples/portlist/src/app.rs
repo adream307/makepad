@@ -8,13 +8,13 @@ live_design!{
 
     NewsFeed ={{NewsFeed}}{
         list = <PortalList>{
-            btn_red=<View>{
+            btn_red=<CachedView>{
                 height:180,
                 width:250,
                 show_bg:true,
                 draw_bg:{ fn pixel(self) -> vec4 { return (#xf00) } }
             }
-            btn_black=<View>{
+            btn_black=<CachedView>{
                 height:180,
                 width:250,
                 show_bg:true,
