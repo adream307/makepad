@@ -59,6 +59,7 @@ impl Widget for NewsFeed{
             if let Some(mut list) = item.as_portal_list().borrow_mut() {
                 list.set_item_range(cx, 0, 1000);
                 while let Some(item_id) = list.next_visible_item(cx) {
+                    log!("========== item {item_id}");
                     let temp_id = if item_id%2==0 { live_id!(btn_red)} else {live_id!(btn_black)};
                     let item = list.item(cx, item_id, temp_id);
                     //item.as_label().set_text(&format!("{item_id}"));
