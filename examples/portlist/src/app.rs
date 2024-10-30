@@ -8,20 +8,19 @@ live_design!{
 
     NewsFeed ={{NewsFeed}}{
         list = <PortalList>{
-            lbl=<CachedView>{
-                    <Label> {
-                        text:"XXX"
-                        draw_text:{
-                            text_style:{
-                                font_size: 100,
-                            }
-                        color:#0
-                    }
-                }
+            btn_red=<CachedView>{
+                height:100,
+                width:100,
+                draw_bg:{ fn pixel(self) -> vec4 { return (#xf00) } }
+            }
+            btn_black=<CachedView>{
+                height:100,
+                width:100,
+                draw_bg:{ fn pixel(self) -> vec4 { return (#x0) } }
             }
         }
     }
-    
+
     App = {{App}} {
         ui: <Window> {
             
@@ -60,7 +59,8 @@ impl Widget for NewsFeed{
             if let Some(mut list) = item.as_portal_list().borrow_mut() {
                 list.set_item_range(cx, 0, 1000);
                 while let Some(item_id) = list.next_visible_item(cx) {
-                    let item = list.item(cx, item_id, live_id!(lbl));
+                    let temp_id = if item_id%2==0 { live_id!(btn_red)} else {live_id!(btn_black)};
+                    let item = list.item(cx, item_id, temp_id);
                     //item.as_label().set_text(&format!("{item_id}"));
                     item.draw_all(cx, &mut Scope::empty());
                 }
