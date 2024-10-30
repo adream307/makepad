@@ -9,13 +9,13 @@ live_design!{
     NewsFeed ={{NewsFeed}}{
         list = <PortalList>{
             btn_red=<CachedView>{
-                height:100,
-                width:100,
+                height:180,
+                width:250,
                 draw_bg:{ fn pixel(self) -> vec4 { return (#xf00) } }
             }
             btn_black=<CachedView>{
-                height:100,
-                width:100,
+                height:180,
+                width:250,
                 draw_bg:{ fn pixel(self) -> vec4 { return (#x0) } }
             }
         }
@@ -55,6 +55,7 @@ struct NewsFeed{
 
 impl Widget for NewsFeed{
     fn draw_walk(&mut self, cx:&mut Cx2d, scope:&mut Scope, walk:Walk)->DrawStep{
+        log!("========= draw_walk");
         while let Some(item) =  self.view.draw_walk(cx, scope, walk).step(){
             if let Some(mut list) = item.as_portal_list().borrow_mut() {
                 list.set_item_range(cx, 0, 1000);
