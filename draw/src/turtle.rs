@@ -539,8 +539,8 @@ impl<'a> Cx2d<'a> {
             });
             
             match turtle.layout.flow {
-                Flow::Right=>turtle.update_height_max(pos.y, size.y + walk.margin.size().y),
-                Flow::Down=>turtle.update_width_max(pos.x, size.x + walk.margin.size().x),
+                Flow::Right=>turtle.update_width_max(pos.x, size.x + walk.margin.size().x),
+                Flow::Down=>turtle.update_height_max(pos.y, size.y + walk.margin.size().y),
                 Flow::Overlay => { // do not walk
                     turtle.update_width_max(pos.x, size.x);
                     turtle.update_height_max(pos.y,size.y);
